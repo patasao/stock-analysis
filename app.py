@@ -83,13 +83,16 @@ if symbol:
         fig_ohlc.update_layout(title=f"{symbol} Price Action", xaxis_rangeslider_visible=False, template="plotly_dark", height=500)
         st.plotly_chart(fig_ohlc, width="stretch")
 
-        # --- 4. Market Structure & Trend Chart ---
+        # --- 4. Market Structure & Trend Analysis (KPI Cards) ---
         trend_status = "Bullish 🟢" if current_price_val > ema_50_val else "Bearish 🔴"
         st.subheader("Trend & Structure Analysis")
-        m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.write(f"**Current Trend:** {trend_status}")
-        m_col2.write(f"**20D Resistance:** ${resistance_val:,.2f}")
-        m_col3.write(f"**20D Support:** ${support_val:,.2f}")
+        m_col1, m_col2, m_col3 = st.columns(3)       
+        # Trend KPI
+        m_col1.metric("Current Trend", trend_status)        
+        # Resistance KPI (Red delta to signify a "ceiling")
+        m_col2.metric("20D Resistance", f"${resistance_val:,.2f}")        
+        # Support KPI (Green delta to signify a "floor")
+        m_col3.metric("20D Support", f"${support_val:,.2f}")
 
         fig_trend = go.Figure()
         fig_trend.add_trace(go.Scatter(x=data.index, y=flatten_col(data['Close']), name='Price'))
@@ -102,7 +105,7 @@ if symbol:
         # --- 5. Raineyps's Analysis (NOW AT BOTTOM) ---
         st.write("---")
         with st.expander("⭐ Raineyps's Analysis", expanded=True):
-            st.info("Note: This is personal strategy, not the recommendation for investment. Please carefully consider other factors before investing.")
+            st.warning("Notice: For educational purposes only. This is a personal strategy, not an investment recommendation. Always consider market risks and your own financial situation before trading.")
             
             p_col1, p_col2, p_col3 = st.columns(3)
             avg_cost = p_col1.number_input("Your Average Cost ($)", value=0.0, step=0.01)
