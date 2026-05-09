@@ -10,8 +10,8 @@ st.set_page_config(page_title="Stock Analysis Dashboard", layout="wide")
 # Title
 st.title("📈 Stock Insight Dashboard")
 
-# 1. Input Box (Moved to Main Page)
-symbol = st.text_input("Enter Stock Symbol (e.g., AAPL, MSFT, TSLA)", value="AAPL").upper()
+# 1. Input Box (Main Page)
+symbol = st.text_input("Enter Stock Symbol (e.g., AAPL, NVDA, BTC-USD)", value="AAPL").upper()
 
 if symbol:
     # --- Data Fetching ---
@@ -19,7 +19,6 @@ if symbol:
     
     if not data.empty:
         # --- 2. Technical Analysis Calculations ---
-        # Calculate EMA 20 and EMA 50
         data['EMA_20'] = data['Close'].ewm(span=20, adjust=False).mean()
         data['EMA_50'] = data['Close'].ewm(span=50, adjust=False).mean()
         
@@ -27,12 +26,19 @@ if symbol:
         high_low = data['High'] - data['Low']
         atrs = high_low.rolling(14).mean()
         
-        # --- Robust Value Extractions ---
-        # Using .iloc[-1].values.flatten()[0] ensures we get a single float regardless of MultiIndex
-        current_price_val = float(data['Close'].iloc[-1].values.flatten()[0])
-        ema_20_val = float(data['EMA_20'].iloc[-1].values.flatten()[0])
-        ema_50_val = float(data['EMA_50'].iloc[-1].values.flatten()[0])
-        latest_atr_val = float(atrs.iloc[-1].values.flatten()[0])
+        # --- Helper Function for Robust Extraction ---
+        def get_last_val(series):
+            """Safely extracts the last numeric value from a Series or MultiIndex DataFrame column."""
+            last_row = series.iloc[-1]
+            if hasattr(last_row, 'values'):
+                return float(last_row.values.flatten()[0])
+            return float(last_row)
+
+        # --- Extraction using Helper ---
+        current_price_val = get_last_val(data['Close'])
+        ema_20_val = get_last_val(data['EMA_20'])
+        ema_50_val = get_last_val(data['EMA_50'])
+        latest_atr_val = get_last_val(atrs)
         
         # Prediction Metrics
         limit_i = ema_20_val
@@ -40,8 +46,8 @@ if symbol:
         limit_iii = ema_20_val - (1.0 * latest_atr_val)
 
         # Resistance and Support (20-day Highs/Lows)
-        resistance_val = float(data['High'].rolling(window=20).max().iloc[-1].values.flatten()[0])
-        support_val = float(data['Low'].rolling(window=20).min().iloc[-1].values.flatten()[0])
+        resistance_val = get_last_val(data['High'].rolling(window=20).max())
+        support_val = get_last_val(data['Low'].rolling(window=20).min())
 
         # --- 3. UI Display: Metrics Row ---
         st.write("---")
@@ -52,12 +58,16 @@ if symbol:
         col4.metric("Limit Buy III", f"${limit_iii:,.2f}")
 
         # --- 4. Main OHLC Chart ---
+        # Note: chart data usually needs flattening if multi-indexed
+        def flatten_col(col):
+            return col.values.flatten() if hasattr(col, 'values') else col
+
         fig_ohlc = go.Figure(data=[go.Candlestick(
             x=data.index,
-            open=data['Open'].values.flatten(),
-            high=data['High'].values.flatten(),
-            low=data['Low'].values.flatten(),
-            close=data['Close'].values.flatten(),
+            open=flatten_col(data['Open']),
+            high=flatten_col(data['High']),
+            low=flatten_col(data['Low']),
+            close=flatten_col(data['Close']),
             name="OHLC"
         )])
         fig_ohlc.update_layout(
@@ -78,8 +88,8 @@ if symbol:
         m_col3.success(f"**Support:** ${support_val:,.2f}")
 
         fig_trend = go.Figure()
-        fig_trend.add_trace(go.Scatter(x=data.index, y=data['Close'].values.flatten(), name='Price', line=dict(color='royalblue')))
-        fig_trend.add_trace(go.Scatter(x=data.index, y=data['EMA_50'].values.flatten(), name='EMA 50 (Trend)', line=dict(color='orange', dash='dot')))
+        fig_trend.add_trace(go.Scatter(x=data.index, y=flatten_col(data['Close']), name='Price', line=dict(color='royalblue')))
+        fig_trend.add_trace(go.Scatter(x=data.index, y=flatten_col(data['EMA_50']), name='EMA 50 (Trend)', line=dict(color='orange', dash='dot')))
         
         # Horizontal lines for S/R
         fig_trend.add_hline(y=resistance_val, line_dash="dash", line_color="red", annotation_text="Resistance")
@@ -88,14 +98,13 @@ if symbol:
         fig_trend.update_layout(title="Trendline & Support/Resistance", template="plotly_dark")
         st.plotly_chart(fig_trend, width="stretch")
 
-        # --- 6. Analysis Logic Breakdown ---
+        # --- 6. Methodology ---
         with st.expander("Methodology"):
             st.write(f"""
-            - **Data Source:** Real-time and Historical data via yfinance.
             - **EMA 20:** Short-term momentum anchor used for **Limit Buy I**.
-            - **ATR (Average True Range):** Used to calculate **Limit II & III** by subtracting volatility from the EMA 20. This helps identify high-probability entries during pullbacks.
-            - **EMA 50:** The 'Trend Filter'. Price > EMA 50 indicates a healthy uptrend.
+            - **ATR:** Volatility subtraction from the EMA 20 for **Limit II & III**.
+            - **EMA 50:** Long-term trend filter.
             """)
 
     else:
-        st.error("Ticker not found. Please try a valid symbol like 'NVDA' or 'BTC-USD'.")
+        st.error("Ticker not found. Please try a valid symbol like 'AAPL' or 'NVDA'.")
