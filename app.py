@@ -109,8 +109,8 @@ if symbol:
             
             p_col1, p_col2, p_col3 = st.columns(3)
             avg_cost = p_col1.number_input("Your Average Cost ($)", value=0.0, step=0.01)
-            num_shares = p_col2.number_input("Shares Currently Owned", value=0, step=1)
-            buy_amt = p_col3.number_input("Planned Buy (Shares)", value=10, step=1)
+            num_shares = p_col2.number_input("Shares Currently Owned", value=0.0, step=0.0001)
+            buy_amt = p_col3.number_input("Planned Buy (Shares)", value=0.0, step=0.0001)
 
             def calc_new_avg(old_avg, old_qty, buy_price, buy_qty):
                 if old_qty + buy_qty == 0: return 0
