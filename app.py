@@ -13,15 +13,44 @@ symbol = st.sidebar.text_input("Enter Stock Symbol (e.g., AAPL, MSFT, TSLA)", va
 
 if symbol:
     # --- Data Fetching ---
+    # Fetching 1 year of daily data
     data = yf.download(symbol, period="1y", interval="1d")
     
     if not data.empty:
-        # Latest data for display
-        latest_data = data.iloc[-1]
-        current_price = latest_data['Close']
+        # --- 2. Technical Analysis Calculations ---
+        # Calculate EMA 20 and EMA 50
+        data['EMA_20'] = data['Close'].ewm(span=20, adjust=False).mean()
+        data['EMA_50'] = data['Close'].ewm(span=50, adjust=False).mean()
         
-        # --- 2. OHLC Chart ---
-        fig = go.Figure(data=[go.Candlestick(
+        # Calculate ATR (Average True Range) for volatility-based limits
+        high_low = data['High'] - data['Low']
+        atrs = high_low.rolling(14).mean()
+        
+        # --- Value Extractions (Forcing Float conversion to avoid Series errors) ---
+        current_price_val = float(data['Close'].iloc[-1])
+        ema_20_val = float(data['EMA_20'].iloc[-1])
+        ema_50_val = float(data['EMA_50'].iloc[-1])
+        latest_atr_val = float(atrs.iloc[-1])
+        
+        # Prediction Metrics (Limit Buy levels)
+        limit_i = ema_20_val
+        limit_ii = ema_20_val - (0.5 * latest_atr_val)
+        limit_iii = ema_20_val - (1.0 * latest_atr_val)
+
+        # Resistance and Support (20-day Highs/Lows)
+        resistance_val = float(data['High'].rolling(window=20).max().iloc[-1])
+        support_val = float(data['Low'].rolling(window=20).min().iloc[-1])
+
+        # --- 3. UI Display: Metrics Table ---
+        st.subheader(f"Market Data: {symbol}")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Current Price", f"${current_price_val:,.2f}")
+        col2.metric("Limit Buy I (EMA 20)", f"${limit_i:,.2f}")
+        col3.metric("Limit Buy II (Soft Support)", f"${limit_ii:,.2f}")
+        col4.metric("Limit Buy III (Strong Support)", f"${limit_iii:,.2f}")
+
+        # --- 4. Main OHLC Chart ---
+        fig_ohlc = go.Figure(data=[go.Candlestick(
             x=data.index,
             open=data['Open'],
             high=data['High'],
@@ -29,62 +58,42 @@ if symbol:
             close=data['Close'],
             name="OHLC"
         )])
-        fig.update_layout(title=f"{symbol} Price Movement", xaxis_rangeslider_visible=False)
-        st.plotly_chart(fig, use_container_width=True)
+        fig_ohlc.update_layout(
+            title=f"{symbol} Candlestick Chart",
+            xaxis_rangeslider_visible=False,
+            template="plotly_dark"
+        )
+        st.plotly_chart(fig_ohlc, width="stretch")
 
-        # --- 3. Analysis & Limit Buy Predictions ---
-        # Logic: Using EMA (Exponential Moving Average) and ATR (Average True Range) 
-        # to find pull-back entry points.
-        data['EMA_20'] = data['Close'].ewm(span=20, adjust=False).mean()
-        # Simple ATR calculation for volatility-based limits
-        high_low = data['High'] - data['Low']
-        atrs = high_low.rolling(14).mean()
-        latest_atr = atrs.iloc[-1]
-
-        # Prediction Metrics
-        # Buy I: 20-day EMA (Normal pullback)
-        limit_i = data['EMA_20'].iloc[-1]
-        # Buy II: 20-day EMA minus 0.5 * ATR (Deep pullback)
-        limit_ii = limit_i - (0.5 * latest_atr)
-        # Buy III: 20-day EMA minus 1.0 * ATR (Major correction/Support level)
-        limit_iii = limit_i - (1.0 * latest_atr)
-
-        # Force these variables to be single float values
-        current_price_val = float(current_price.iloc[0] if isinstance(current_price, pd.Series) else current_price)
-        limit_i_val = float(limit_i.iloc[0] if isinstance(limit_i, pd.Series) else limit_i)
-        limit_ii_val = float(limit_ii.iloc[0] if isinstance(limit_ii, pd.Series) else limit_ii)
-        limit_iii_val = float(limit_iii.iloc[0] if isinstance(limit_iii, pd.Series) else limit_iii)
-
-        st.subheader("Price & Predicted Buy Levels")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Current Price", f"${current_price_val:,.2f}")
-        col2.metric("Limit Buy I (EMA 20)", f"${limit_i_val:,.2f}")
-        col3.metric("Limit Buy II (Soft Support)", f"${limit_ii_val:,.2f}")
-        col4.metric("Limit Buy III (Strong Support)", f"${limit_iii_val:,.2f}")
-
-        # --- 4. Support, Resistance & Trend ---
-        # Calculation for S&R based on recent 20-day highs/lows
-        resistance = data['High'].rolling(window=20).max().iloc[-1]
-        support = data['Low'].rolling(window=20).min().iloc[-1]
-        
-        # Trend Logic: Price vs EMA 50
-        ema_50 = data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
-        trend = "Bullish 🟢" if current_price > ema_50 else "Bearish 🔴"
+        # --- 5. Market Structure (Trend & Support/Resistance) ---
+        trend = "Bullish 🟢" if current_price_val > ema_50_val else "Bearish 🔴"
 
         st.write("---")
-        st.subheader("Market Structure")
+        st.subheader("Market Structure & Trend")
         m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.write(f"**Current Trend:** {trend}")
-        m_col2.write(f"**20D Resistance:** ${resistance:,.2f}")
-        m_col3.write(f"**20D Support:** ${support:,.2f}")
+        m_col1.write(f"**Current Trend (vs EMA 50):** {trend}")
+        m_col2.write(f"**20D Resistance:** ${resistance_val:,.2f}")
+        m_col3.write(f"**20D Support:** ${support_val:,.2f}")
 
-        # Visualization for S&R
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(x=data.index, y=data['Close'], name='Price', line=dict(color='royalblue')))
-        fig2.add_hline(y=resistance, line_dash="dash", line_color="red", annotation_text="Resistance")
-        fig2.add_hline(y=support, line_dash="dash", line_color="green", annotation_text="Support")
-        fig2.update_layout(title="Trend & Support/Resistance Levels")
-        st.plotly_chart(fig2, use_container_width=True)
+        # Trend & S/R Visual Chart
+        fig_trend = go.Figure()
+        fig_trend.add_trace(go.Scatter(x=data.index, y=data['Close'], name='Price', line=dict(color='royalblue')))
+        fig_trend.add_trace(go.Scatter(x=data.index, y=data['EMA_50'], name='EMA 50 (Trend)', line=dict(color='orange', dash='dot')))
+        
+        # Horizontal lines for S/R
+        fig_trend.add_hline(y=resistance_val, line_dash="dash", line_color="red", annotation_text="Resistance")
+        fig_trend.add_hline(y=support_val, line_dash="dash", line_color="green", annotation_text="Support")
+        
+        fig_trend.update_layout(title="Trendline & S/R Analysis", template="plotly_dark")
+        st.plotly_chart(fig_trend, width="stretch")
+
+        # --- 6. Analysis Logic Table (Data Breakdown) ---
+        with st.expander("View Calculation Details"):
+            st.write("""
+            - **Limit Buy I:** Set at the 20-day Exponential Moving Average (EMA).
+            - **Limit Buy II/III:** Calculated using Average True Range (ATR) to adjust for current market volatility.
+            - **Trend:** Determined by whether the price is above (Bullish) or below (Bearish) the 50-day EMA.
+            """)
 
     else:
-        st.error("Invalid Symbol or No Data Found.")
+        st.error("Invalid Symbol or No Data Found. Please check the ticker and try again.")
