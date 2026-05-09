@@ -48,7 +48,7 @@ if symbol:
         limit_ii = ema_20_val - (0.5 * latest_atr_val)
         limit_iii = ema_20_val - (1.0 * latest_atr_val)
 
-        # --- Raineyps's Analysis Calculations ---
+        # --- PS's Analysis Calculations ---
         today_low = get_val(data['Low'], -1)
         yest_low = get_val(data['Low'], -2)
         yest_open = get_val(data['Open'], -2)
@@ -102,9 +102,9 @@ if symbol:
         fig_trend.update_layout(title="Trendline & Support/Resistance", template="plotly_dark", height=400)
         st.plotly_chart(fig_trend, width="stretch")
 
-        # --- 5. Raineyps's Analysis (NOW AT BOTTOM) ---
+        # --- 5. PS's Analysis (NOW AT BOTTOM) ---
         st.write("---")
-        with st.expander("⭐ Raineyps's Analysis", expanded=True):
+        with st.expander("⭐ PS's Analysis", expanded=True):
             st.warning("Notice: For educational purposes only. This is a personal strategy, not an investment recommendation. Always consider market risks and your own financial situation before trading.")
             
             p_col1, p_col2, p_col3 = st.columns(3)
