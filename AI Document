@@ -29,7 +29,7 @@ The system processes data through three distinct filters:
 
 ---
 
-## 3. Specialized Strategy: Raineyps's Analysis
+## 3. Specialized Strategy: PS's Analysis
 
 This proprietary module provides a custom specialized entry strategy based on intraday and historical volatility.
 
@@ -58,7 +58,7 @@ $$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty
 
 ### **Iteration 2: Custom Strategy Integration**
 
-* **Prompt:** Add "Raineyps's Analysis" with specific formulas and a new average cost input box.
+* **Prompt:** Add "PS's Analysis" with specific formulas and a new average cost input box.
 * **UX Update:** Implemented a custom HTML/CSS disclaimer box in **Red** to highlight financial risk and ensure user compliance.
 
 ### **Iteration 3: UI/UX Refinement**
