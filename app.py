@@ -49,12 +49,18 @@ if symbol:
         # Buy III: 20-day EMA minus 1.0 * ATR (Major correction/Support level)
         limit_iii = limit_i - (1.0 * latest_atr)
 
+        # Force these variables to be single float values
+        current_price_val = float(current_price.iloc[0] if isinstance(current_price, pd.Series) else current_price)
+        limit_i_val = float(limit_i.iloc[0] if isinstance(limit_i, pd.Series) else limit_i)
+        limit_ii_val = float(limit_ii.iloc[0] if isinstance(limit_ii, pd.Series) else limit_ii)
+        limit_iii_val = float(limit_iii.iloc[0] if isinstance(limit_iii, pd.Series) else limit_iii)
+
         st.subheader("Price & Predicted Buy Levels")
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Current Price", f"${current_price:,.2f}")
-        col2.metric("Limit Buy I (EMA 20)", f"${limit_i:,.2f}")
-        col3.metric("Limit Buy II (Soft Support)", f"${limit_ii:,.2f}")
-        col4.metric("Limit Buy III (Strong Support)", f"${limit_iii:,.2f}")
+        col1.metric("Current Price", f"${current_price_val:,.2f}")
+        col2.metric("Limit Buy I (EMA 20)", f"${limit_i_val:,.2f}")
+        col3.metric("Limit Buy II (Soft Support)", f"${limit_ii_val:,.2f}")
+        col4.metric("Limit Buy III (Strong Support)", f"${limit_iii_val:,.2f}")
 
         # --- 4. Support, Resistance & Trend ---
         # Calculation for S&R based on recent 20-day highs/lows
