@@ -135,3 +135,14 @@ if symbol:
 
     else:
         st.error("Ticker not found. Please try a valid symbol.")
+
+# --- Footer ---
+st.write("---")
+st.markdown(
+    """
+    <div style="text-align: center; color: #888888; font-size: 0.8em;">
+        Developed with the assistance of <strong>Gemini</strong> (Google AI).
+    </div>
+    """,
+    unsafe_allow_html=True
+)

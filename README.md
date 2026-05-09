@@ -31,6 +31,7 @@ The dashboard includes a specialized section for personal strategy evaluation:
 ## ⚠️ Disclaimer
 This analysis represents a personal trading strategy and does not constitute financial advice. Investment involves risk; please conduct your own due diligence before committing capital.
 
-## 🤖 AI
-Gemini
+## 🤖 Note:
+Leveraged Large Language Models (LLMs) to optimize Python script performance, accelerate debugging processes and UI/UX design.
+
 ---

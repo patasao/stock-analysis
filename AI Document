@@ -1,0 +1,87 @@
+Here is the final technical documentation for your project in **Markdown** format. You can copy this directly into a `.md` file (like `PROJECT_DOCS.md`) or keep it as a record of your development journey.
+
+---
+
+# 📝 AI Project Documentation: Stock Insight Dashboard
+
+## 1. Executive Summary
+
+**Goal:**
+
+1. **Optimization:** To analyze stock price action from a buyer's perspective and engineer the most efficient entry points to minimize cost basis and maximize profit potential.
+2. **Modernization:** To transition from traditional, static Google Sheets dashboards to a dynamic, real-time web application.
+
+---
+
+## 2. Technical Logic & Architecture
+
+### A. Core Architecture
+
+The application is built using **Python** and **Streamlit** for high-speed deployment and interactivity. It utilizes the `yfinance` API to bridge the gap between historical data and live market sessions.
+
+### B. Analytical Layers
+
+The system processes data through three distinct filters:
+
+1. **The Price Action Layer:** A Candlestick (OHLC) engine that visualizes market volatility.
+2. **The Institutional Layer:** Utilizes **EMA 20/50** and **ATR** to define the trend (Bullish/Bearish) and set standard technical buy limits.
+3. **The Structure Layer:** Automatically identifies **20-Day Support and Resistance** levels to define the "trading range."
+
+---
+
+## 3. Specialized Strategy: Raineyps's Analysis
+
+This proprietary module provides a custom specialized entry strategy based on intraday and historical volatility.
+
+| Indicator | Formula Logic | Strategic Intent |
+| --- | --- | --- |
+| **Limit Buy I** | $(Current Price + Today's Low) / 2$ | Median price capture for high-frequency entries. |
+| **Limit Buy II** | $(1 - \frac{ | Yest Low - Yest Open |
+| **Limit Buy III** | $Yest Close \times 0.95$ | Fixed "Safety" discount (5% retracement). |
+
+### Cost Averaging Simulator
+
+The engine includes a dynamic calculator to predict the "New Average Cost" before a trade is executed:
+
+
+$$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty)}{CurrentQty + PurchaseQty}$$
+
+---
+
+## 4. Development Iteration History
+
+### **Iteration 1: Migration & Robustness**
+
+* **Prompt:** Create a web app on GitHub with a stock input, OHLC chart, and technical indicators.
+* **Technical Challenge:** Encountered `TypeError` and `AttributeError` due to `yfinance` returning MultiIndex DataFrames (Series objects).
+* **Solution:** Developed a "Universal Extraction Helper" that safely flattens and converts nested API data into raw numeric floats.
+
+### **Iteration 2: Custom Strategy Integration**
+
+* **Prompt:** Add "Raineyps's Analysis" with specific formulas and a new average cost input box.
+* **UX Update:** Implemented a custom HTML/CSS disclaimer box in **Red** to highlight financial risk and ensure user compliance.
+
+### **Iteration 3: UI/UX Refinement**
+
+* **Prompt:** Move input boxes for better flow and convert text-based data into KPI cards.
+* **Update:**
+* Moved the symbol input to the main header.
+* Converted Trend and S/R analysis into **Streamlit Metric Cards**.
+* Integrated a collaboration footer acknowledging **Gemini (Google AI)** support.
+
+
+
+---
+
+## 5. Achievement & Impact
+
+* **Deployment:** Successfully generated a GitHub-ready web application.
+* **Outcome:** Real-time data processing replaced manual static updates, allowing for automated price optimization and "what-if" purchase scenarios.
+
+---
+
+### **Final Collaboration Note**
+
+This project was developed through a collaborative iterative process between the user and **Gemini (Google AI)** to ensure technical accuracy, robust error handling, and a professional user interface.
+
+**Status:** `Completed / Deployed` 🚀
