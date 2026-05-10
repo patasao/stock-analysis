@@ -65,9 +65,21 @@ $$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty
 
 * **Prompt:** Move input boxes for better flow and convert text-based data into KPI cards.
 * **Update:**
-* Moved the symbol input to the main header.
-* Converted Trend and S/R analysis into **Streamlit Metric Cards**.
-* Integrated a collaboration footer acknowledging **Gemini (Google AI)** support.
+    * Moved the symbol input to the main header.
+    * Converted Trend and S/R analysis into **Streamlit Metric Cards**.
+    * Integrated a collaboration footer acknowledging **Gemini (Google AI)** support.
+
+### **Iteration 4: Performance & Professionalism (Current)**
+
+* **Prompt:** Improve app performance, reorganize the UI, and add advanced technical indicators.
+* **Updates:**
+    * **Performance Optimization:** Implemented `@st.cache_data` for data fetching to minimize API calls and ensure instant UI responsiveness.
+    * **Architecture Overhaul:** 
+        * Moved all configuration (Ticker, Period, Indicator settings) to the **Sidebar**.
+        * Organized the dashboard into **Tabs** (Overview, Technicals, PS's Analysis) for a professional analytical workflow.
+    * **Advanced Indicators:** Integrated **RSI (14)** and **MACD** charts to provide deeper market sentiment analysis.
+    * **Visual Refinement:** Custom-styled Metric Cards with a high-contrast theme (#F0F8FF background with black text) for maximum readability.
+    * **Compliance:** Added a dedicated **Educational Warning** banner to the proprietary strategy module.
 
 
 
