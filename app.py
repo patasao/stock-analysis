@@ -120,17 +120,17 @@ if symbol:
             
             # Limit I
             new_avg_i = calc_new_avg(avg_cost, num_shares, r_limit_i, buy_amt)
-            l_col1.metric("Rainey Limit I", f"${r_limit_i:,.2f}")
+            l_col1.metric("PS Limit I", f"${r_limit_i:,.2f}")
             l_col1.caption(f"New Avg: **${new_avg_i:,.2f}**")
 
             # Limit II
             new_avg_ii = calc_new_avg(avg_cost, num_shares, r_limit_ii, buy_amt)
-            l_col2.metric("Rainey Limit II", f"${r_limit_ii:,.2f}")
+            l_col2.metric("PS Limit II", f"${r_limit_ii:,.2f}")
             l_col2.caption(f"New Avg: **${new_avg_ii:,.2f}**")
 
             # Limit III
             new_avg_iii = calc_new_avg(avg_cost, num_shares, r_limit_iii, buy_amt)
-            l_col3.metric("Rainey Limit III", f"${r_limit_iii:,.2f}")
+            l_col3.metric("PS Limit III", f"${r_limit_iii:,.2f}")
             l_col3.caption(f"New Avg: **${new_avg_iii:,.2f}**")
 
     else:
