@@ -1,37 +1,72 @@
 # 📈 Stock Insight Dashboard
 
-A professional-grade financial analysis web application built with **Streamlit** and **Python**. This dashboard provides real-time market data, technical indicators, and a specialized custom trading strategy simulator.
+A professional-grade financial analysis web application built with **Streamlit** and **Python**. This dashboard provides real-time market data, advanced technical indicators, and a specialized custom trading strategy simulator.
 
 ## 🚀 Live Demo
 [View Live App](https://ps-stock-analysis.streamlit.app/)
 
 ## ✨ Features
 *   **Real-Time Data:** Powered by `yfinance` for up-to-the-minute stock and crypto price action.
-*   **Technical Indicators:** 
-    *   Exponential Moving Averages (EMA 20 & 50) for trend identification.
-    *   ATR-based volatility bands.
-    *   20-Day Support and Resistance discovery.
-*   **Interactive Charts:** High-fidelity Candlestick and Trendline charts using `Plotly`.
+*   **Advanced Technical Indicators:** 
+    *   **Trend:** Exponential Moving Averages (EMA 20 & 50) for trend identification.
+    *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence).
+    *   **Volatility:** ATR-based entry limits.
+    *   **Structure:** 20-Day Support and Resistance discovery.
+*   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`.
+*   **Performance Optimized:** Integrated `@st.cache_data` for efficient data fetching and responsive UI.
 *   **PS's Analysis:** A proprietary trading module that calculates custom entry limits and simulates "New Average Cost" for portfolio scaling.
 
+## 🛠️ Local Setup
+
+Follow these steps to run the dashboard locally:
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-username/stock-analysis.git
+   cd stock-analysis
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Run the app:**
+   ```bash
+   streamlit run app.py
+   ```
+
 ## 📋 Requirements
-The following libraries are required to run the dashboard:
-*   `streamlit`
-*   `yfinance`
-*   `pandas`
-*   `plotly`
+The core libraries used in this project are:
+*   `streamlit` - Web framework
+*   `yfinance` - Financial data API
+*   `pandas` - Data manipulation
+*   `plotly` - Interactive charts
 
 ## 📊 Strategy Logic: PS's Analysis
-The dashboard includes a specialized section for personal strategy evaluation:
-*   **Limit I:** Mid-point between current price and the day's low.
-*   **Limit II:** Volatility-adjusted entry based on the prior day's price spread.
-*   **Limit III:** Fixed 5% retracement from the previous close.
-*   **Cost Averaging:** Dynamic calculation of your new position basis when scaling into a trade.
+The dashboard includes a specialized section for personal strategy evaluation, organized into three tabs:
+1.  **Overview:** Real-time metrics and price action chart.
+2.  **Technicals:** Detailed RSI and MACD analysis.
+3.  **PS's Analysis:** Strategy-based entry targets and cost-averaging simulator.
+
+### Entry Targets
+*   **PS Limit I:** Mid-point between current price and the day's low.
+*   **PS Limit II:** Volatility-adjusted entry based on the prior day's price spread.
+*   **PS Limit III:** Fixed 5% retracement from the previous close.
+
+### Cost Averaging Simulator
+Dynamic calculation of your new position basis:
+
+$$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty)}{CurrentQty + PurchaseQty}$$
 
 ## ⚠️ Disclaimer
 This analysis represents a personal trading strategy and does not constitute financial advice. Investment involves risk; please conduct your own due diligence before committing capital.
 
-## 🤖 Note:
-Leveraged Large Language Models (LLMs) to optimize Python script performance, accelerate debugging processes and UI/UX design.
-
----
+## 🤖 AI Collaboration
+Developed with the support of **Gemini (Google AI)** to optimize performance, refine the UI/UX, and ensure robust error handling.
