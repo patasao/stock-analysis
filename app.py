@@ -172,17 +172,18 @@ if symbol:
             st.info("Strategy-based entry limits and cost-averaging simulator.")
             
             # PS Strategy Logic
-            today_low = float(data['Low'].iloc[-1])
+            today_open = float(data['Open'].iloc[-1])
             yest_low = float(data['Low'].iloc[-2])
             yest_open = float(data['Open'].iloc[-2])
-            yest_close = float(data['Close'].iloc[-2])
 
-            r_limit_i = (curr_price + today_low) / 2
-            v_factor = 1 - (abs(yest_low - yest_open) / yest_open) if yest_open != 0 else 1
-            r_limit_ii = v_factor * yest_close
-            r_limit_iii = yest_close * 0.95
+            # PS Limit Buy I = (today's open + % change from yest's open to yest's lowest)
+            pct_change_yest = (yest_low - yest_open) / yest_open if yest_open != 0 else 0
+            r_limit_i = today_open * (1 + pct_change_yest)
             
-            # ATR/EMA Limits (Original logic from app)
+            # PS Limit Buy II = Limit buy I - 3%
+            r_limit_ii = r_limit_i * 0.97
+            
+            # ATR/EMA Limits
             limit_i = ema_short_val
             limit_ii = ema_short_val - (0.5 * atr_val)
             limit_iii = ema_short_val - (1.0 * atr_val)
@@ -197,31 +198,47 @@ if symbol:
                 if old_qty + buy_qty == 0: return 0
                 return ((old_avg * old_qty) + (buy_price * buy_qty)) / (old_qty + buy_qty)
 
+            def get_avg_display(new_avg, old_avg):
+                if old_avg == 0:
+                    return f"New Avg: **${new_avg:,.2f}**"
+                if new_avg < old_avg:
+                    return f"New Avg: **${new_avg:,.2f}** 🟢 ↓"
+                elif new_avg > old_avg:
+                    return f"New Avg: **${new_avg:,.2f}** 🔴 ↑"
+                else:
+                    return f"New Avg: **${new_avg:,.2f}**"
+
             st.write("### Entry Targets")
-            l_col1, l_col2, l_col3 = st.columns(3)
+            l_col1, l_col2 = st.columns(2)
             
-            # Display PS Limits
             with l_col1:
-                st.metric("PS Limit I", f"${r_limit_i:,.2f}")
+                st.metric("PS Limit I", f"${r_limit_i:,.2f}", help="Today's Open + % change from Yesterday's Open to Yesterday's Low")
                 new_avg = calc_new_avg(avg_cost, num_shares, r_limit_i, buy_amt)
-                st.caption(f"New Avg: **${new_avg:,.2f}**")
+                st.caption(get_avg_display(new_avg, avg_cost))
             
             with l_col2:
-                st.metric("PS Limit II", f"${r_limit_ii:,.2f}")
+                st.metric("PS Limit II", f"${r_limit_ii:,.2f}", help="PS Limit I - 3%")
                 new_avg = calc_new_avg(avg_cost, num_shares, r_limit_ii, buy_amt)
-                st.caption(f"New Avg: **${new_avg:,.2f}**")
-                
-            with l_col3:
-                st.metric("PS Limit III", f"${r_limit_iii:,.2f}")
-                new_avg = calc_new_avg(avg_cost, num_shares, r_limit_iii, buy_amt)
-                st.caption(f"New Avg: **${new_avg:,.2f}**")
+                st.caption(get_avg_display(new_avg, avg_cost))
 
             st.write("---")
             st.write("### ATR/EMA Entry Targets")
             a_col1, a_col2, a_col3 = st.columns(3)
-            a_col1.metric("EMA 20 Limit", f"${limit_i:,.2f}")
-            a_col2.metric("ATR Limit II", f"${limit_ii:,.2f}")
-            a_col3.metric("ATR Limit III", f"${limit_iii:,.2f}")
+            
+            with a_col1:
+                st.metric("EMA 20 Limit", f"${limit_i:,.2f}", help="Current Short EMA (20-day) value")
+                new_avg = calc_new_avg(avg_cost, num_shares, limit_i, buy_amt)
+                st.caption(get_avg_display(new_avg, avg_cost))
+                
+            with a_col2:
+                st.metric("ATR Limit II", f"${limit_ii:,.2f}", help="EMA 20 - (0.5 * ATR)")
+                new_avg = calc_new_avg(avg_cost, num_shares, limit_ii, buy_amt)
+                st.caption(get_avg_display(new_avg, avg_cost))
+                
+            with a_col3:
+                st.metric("ATR Limit III", f"${limit_iii:,.2f}", help="EMA 20 - (1.0 * ATR)")
+                new_avg = calc_new_avg(avg_cost, num_shares, limit_iii, buy_amt)
+                st.caption(get_avg_display(new_avg, avg_cost))
 
     else:
         st.error(f"Ticker '{symbol}' not found or data unavailable.")

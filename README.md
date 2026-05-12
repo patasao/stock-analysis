@@ -56,12 +56,14 @@ The dashboard includes a specialized section for personal strategy evaluation, o
 3.  **PS's Analysis:** Strategy-based entry targets and cost-averaging simulator.
 
 ### Entry Targets
-*   **PS Limit I:** Mid-point between current price and the day's low.
-*   **PS Limit II:** Volatility-adjusted entry based on the prior day's price spread.
-*   **PS Limit III:** Fixed 5% retracement from the previous close.
+*   **PS Limit I:** Today's Open adjusted by the percentage change between Yesterday's Open and Yesterday's Low.
+*   **PS Limit II:** A 3% reduction from PS Limit I.
+*   **ATR/EMA Targets:** Includes EMA 20, ATR Limit II (EMA 20 - 0.5 * ATR), and ATR Limit III (EMA 20 - 1.0 * ATR).
 
 ### Cost Averaging Simulator
-Dynamic calculation of your new position basis:
+Dynamic calculation of your new position basis with real-time feedback:
+*   **Tooltips:** Detailed calculation methods visible on hover (i).
+*   **Trend Indicators:** Visual cues (🟢 ↓ or 🔴 ↑) showing if the new average is better or worse than your current cost.
 
 $$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty)}{CurrentQty + PurchaseQty}$$
 

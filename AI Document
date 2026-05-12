@@ -35,16 +35,12 @@ This proprietary module provides a custom specialized entry strategy based on in
 
 | Indicator | Formula Logic | Strategic Intent |
 | --- | --- | --- |
-| **Limit Buy I** | $(Current Price + Today's Low) / 2$ | Median price capture for high-frequency entries. |
-| **Limit Buy II** | $(1 - \frac{ | Yest Low - Yest Open |
-| **Limit Buy III** | $Yest Close \times 0.95$ | Fixed "Safety" discount (5% retracement). |
+| **Limit Buy I** | $Today's Open \times (1 + \frac{Yest Low - Yest Open}{Yest Open})$ | Dynamic entry based on prior day's price weakness. |
+| **Limit Buy II** | $Limit Buy I \times 0.97$ | 3% conservative safety buffer below primary target. |
 
 ### Cost Averaging Simulator
 
-The engine includes a dynamic calculator to predict the "New Average Cost" before a trade is executed:
-
-
-$$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty)}{CurrentQty + PurchaseQty}$$
+The engine includes a dynamic calculator to predict the "New Average Cost" before a trade is executed, now featuring **Tooltips** for formula transparency and **Trend Indicators** (🟢 ↓ / 🔴 ↑) to visualize cost improvement.
 
 ---
 
@@ -69,7 +65,7 @@ $$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty
     * Converted Trend and S/R analysis into **Streamlit Metric Cards**.
     * Integrated a collaboration footer acknowledging **Gemini (Google AI)** support.
 
-### **Iteration 4: Performance & Professionalism (Current)**
+### **Iteration 4: Performance & Professionalism**
 
 * **Prompt:** Improve app performance, reorganize the UI, and add advanced technical indicators.
 * **Updates:**
@@ -80,6 +76,19 @@ $$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty
     * **Advanced Indicators:** Integrated **RSI (14)** and **MACD** charts to provide deeper market sentiment analysis.
     * **Visual Refinement:** Custom-styled Metric Cards with a high-contrast theme (#F0F8FF background with black text) for maximum readability.
     * **Compliance:** Added a dedicated **Educational Warning** banner to the proprietary strategy module.
+
+### **Iteration 5: Advanced Logic & UI Feedback (Current)**
+
+* **Prompt:** Refine PS entry logic, add tooltips, and implement visual indicators for average cost comparisons.
+* **Updates:**
+    * **Logic Overhaul:**
+        * Updated **Limit Buy I** to factor in the percentage change from yesterday's open to yesterday's low against today's open.
+        * Simplified **Limit Buy II** to a fixed 3% discount from Limit I.
+        * Removed the redundant **Limit Buy III**.
+    * **UI/UX Enhancement:**
+        * Integrated **Tooltips** using the `help` parameter in `st.metric` for all entry targets.
+        * Developed **Dynamic Trend Indicators** (arrows and colors) for the "New Average Cost" display.
+        * Expanded average cost simulation to include **ATR/EMA Entry Targets**.
 
 
 
