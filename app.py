@@ -83,6 +83,54 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     
     return df
 
+# --- Recommendation Logic ---
+@st.cache_data(ttl=3600)
+def get_recommendations():
+    # Predefined list of popular tickers
+    tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 'AMD', 'PYPL', 'DIS', 'ADBE', 'CRM', 'INTC', 'SBUX', 'V', 'MA', 'AVGO', 'COST', 'JPM']
+    try:
+        # Fetch 5 days of data for all tickers
+        data = yf.download(tickers, period="5d", interval="1d", group_by='ticker')
+        recommendations = []
+        
+        for ticker in tickers:
+            try:
+                if ticker not in data.columns.levels[0]: continue
+                ticker_data = data[ticker].dropna()
+                if len(ticker_data) < 2: continue
+                
+                # Latest performance (5-day return)
+                start_price = float(ticker_data['Close'].iloc[0])
+                end_price = float(ticker_data['Close'].iloc[-1])
+                perf = ((end_price - start_price) / start_price) * 100
+                
+                # PS Limit Buy Logic
+                today_open = float(ticker_data['Open'].iloc[-1])
+                yest_low = float(ticker_data['Low'].iloc[-2])
+                yest_open = float(ticker_data['Open'].iloc[-2])
+                
+                pct_change_yest = (yest_low - yest_open) / yest_open if yest_open != 0 else 0
+                limit_i = today_open * (1 + pct_change_yest)
+                limit_ii = limit_i * 0.97
+                
+                recommendations.append({
+                    "Ticker": ticker,
+                    "5D Perf %": perf,
+                    "Price": end_price,
+                    "Limit I": limit_i,
+                    "Limit II": limit_ii
+                })
+            except:
+                continue
+            
+        # Sort by performance and take top 10
+        df_rec = pd.DataFrame(recommendations)
+        if not df_rec.empty:
+            df_rec = df_rec.sort_values(by="5D Perf %", ascending=False).head(10)
+        return df_rec
+    except Exception as e:
+        return pd.DataFrame() # Return empty DF on error
+
 # --- Sidebar ---
 st.sidebar.title("🛠️ Configuration")
 symbol = st.sidebar.text_input("Stock Symbol", value="AAPL").upper()
@@ -117,7 +165,7 @@ if symbol:
         sup_val = float(data['Support'].iloc[-1])
         
         # Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 Overview", "🔍 Technicals", "⭐ PS's Analysis"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🔍 Technicals", "⭐ PS's Analysis", "🚀 Recommend Stocks"])
         
         with tab1:
             # Metrics Row
@@ -239,6 +287,26 @@ if symbol:
                 st.metric("ATR Limit III", f"${limit_iii:,.2f}", help="EMA 20 - (1.0 * ATR)")
                 new_avg = calc_new_avg(avg_cost, num_shares, limit_iii, buy_amt)
                 st.caption(get_avg_display(new_avg, avg_cost))
+
+        with tab4:
+            st.subheader("🚀 Recommended Stocks")
+            st.write("Top 10 performers from a selection of high-volume stocks (last 5 days) with calculated limit buy targets.")
+            
+            with st.spinner("Analyzing market opportunities..."):
+                rec_df = get_recommendations()
+            
+            if not rec_df.empty:
+                # Formatting for display
+                display_df = rec_df.copy()
+                display_df['5D Perf %'] = display_df['5D Perf %'].map("{:,.2f}%".format)
+                display_df['Price'] = display_df['Price'].map("${:,.2f}".format)
+                display_df['Limit I'] = display_df['Limit I'].map("${:,.2f}".format)
+                display_df['Limit II'] = display_df['Limit II'].map("${:,.2f}".format)
+                
+                st.table(display_df)
+                st.info("💡 **Tip:** Limit I and Limit II are calculated based on the PS strategy logic shown in the 'PS's Analysis' tab.")
+            else:
+                st.error("Could not fetch recommendations at this time.")
 
     else:
         st.error(f"Ticker '{symbol}' not found or data unavailable.")
