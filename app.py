@@ -31,6 +31,102 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Data Fetching (Cached) ---
+@st.cache_data(ttl=86400)  # Cache S&P 500 list for 24 hours
+def get_sp500_tickers():
+    # Try multiple reliable sources for robustness
+    sources = [
+        "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
+        "https://raw.githubusercontent.com/datasets/s-p-500-companies/main/data/constituents.csv",
+        "https://raw.githubusercontent.com/fja05/sp500-constituents/master/constituents.csv"
+    ]
+    
+    last_error = ""
+    for url in sources:
+        try:
+            import requests
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            from io import StringIO
+            df = pd.read_csv(StringIO(response.text))
+            
+            # Normalize column names: look for symbol/ticker and sector/industry
+            cols = {col.lower(): col for col in df.columns}
+            ticker_col = next((cols[c] for c in ['symbol', 'ticker', 'symbol'] if c in cols), df.columns[0])
+            sector_col = next((cols[c] for c in ['sector', 'gics sector', 'industry'] if c in cols), df.columns[1])
+            
+            df = df[[ticker_col, sector_col]]
+            df.columns = ['Ticker', 'Sector']
+            df['Ticker'] = df['Ticker'].str.replace('.', '-', regex=False)
+            df['Index'] = 'S&P 500'
+            return df
+        except Exception as e:
+            last_error = str(e)
+            continue
+            
+    # Fallback to Wikipedia if CSVs fail
+    try:
+        url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        import requests
+        response = requests.get(url, headers=headers, timeout=10)
+        # Try different table indices as Wikipedia structure can shift
+        tables = pd.read_html(response.text)
+        for df in tables:
+            if 'Symbol' in df.columns or 'Ticker' in df.columns:
+                ticker_col = 'Symbol' if 'Symbol' in df.columns else 'Ticker'
+                sector_col = 'GICS Sector' if 'GICS Sector' in df.columns else ([c for c in df.columns if 'Sector' in c][0] if [c for c in df.columns if 'Sector' in c] else None)
+                if sector_col:
+                    df = df[[ticker_col, sector_col]]
+                    df.columns = ['Ticker', 'Sector']
+                    df['Ticker'] = df['Ticker'].str.replace('.', '-', regex=False)
+                    df['Index'] = 'S&P 500'
+                    return df
+    except Exception as e:
+        st.warning(f"⚠️ S&P 500 Source Error: {last_error if last_error else str(e)}")
+        st.info("Using built-in limited S&P 500 list for core functionality.")
+        return pd.DataFrame([
+            {"Ticker": "AAPL", "Sector": "Information Technology", "Index": "S&P 500"},
+            {"Ticker": "MSFT", "Sector": "Information Technology", "Index": "S&P 500"},
+            {"Ticker": "NVDA", "Sector": "Information Technology", "Index": "S&P 500"},
+            {"Ticker": "GOOGL", "Sector": "Communication Services", "Index": "S&P 500"},
+            {"Ticker": "AMZN", "Sector": "Consumer Discretionary", "Index": "S&P 500"},
+            {"Ticker": "META", "Sector": "Communication Services", "Index": "S&P 500"},
+            {"Ticker": "TSLA", "Sector": "Consumer Discretionary", "Index": "S&P 500"}
+        ])
+
+@st.cache_data(ttl=86400)
+def get_nasdaq100_tickers():
+    try:
+        # Wikipedia is usually more reliable for NASDAQ-100 as there isn't a single standard CSV repo as stable as the S&P 500 one
+        # But we will use a common community-maintained one if available, or stick to a robust requests-based scrape
+        url = "https://en.wikipedia.org/wiki/Nasdaq-100"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        import requests
+        response = requests.get(url, headers=headers)
+        tables = pd.read_html(response.text)
+        # Usually the 4th table on this page
+        df = tables[4] 
+        # Wikipedia table columns: 'Ticker' and 'GICS Sector' (or similar)
+        # We need to find the right column names as they vary
+        ticker_col = [col for col in df.columns if 'Symbol' in col or 'Ticker' in col][0]
+        sector_col = [col for col in df.columns if 'Sector' in col][0]
+        
+        df = df[[ticker_col, sector_col]]
+        df.columns = ['Ticker', 'Sector']
+        df['Index'] = 'NASDAQ-100'
+        return df
+    except Exception as e:
+        # Fallback for NASDAQ-100
+        return pd.DataFrame([
+            {"Ticker": "AAPL", "Sector": "Information Technology", "Index": "NASDAQ-100"},
+            {"Ticker": "MSFT", "Sector": "Information Technology", "Index": "NASDAQ-100"},
+            {"Ticker": "NVDA", "Sector": "Information Technology", "Index": "NASDAQ-100"},
+            {"Ticker": "AMZN", "Sector": "Consumer Discretionary", "Index": "NASDAQ-100"},
+            {"Ticker": "META", "Sector": "Communication Services", "Index": "NASDAQ-100"}
+        ])
+
 @st.cache_data(ttl=3600)  # Cache data for 1 hour
 def fetch_stock_data(symbol, period="1y", interval="1d"):
     try:
@@ -89,12 +185,17 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
 
 # --- Recommendation Logic ---
 @st.cache_data(ttl=3600)
-def get_recommendations():
-    # Predefined list of popular tickers
-    tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 'AMD', 'PYPL', 'DIS', 'ADBE', 'CRM', 'INTC', 'SBUX', 'V', 'MA', 'AVGO', 'COST', 'JPM']
+def get_recommendations(tickers_df):
+    if tickers_df.empty:
+        return pd.DataFrame()
+        
+    tickers = tickers_df['Ticker'].tolist()
+    sector_map = dict(zip(tickers_df['Ticker'], tickers_df['Sector']))
+    index_map = dict(zip(tickers_df['Ticker'], tickers_df['Index']))
+    
     try:
         # Fetch data for all tickers (1y to cover YTD and EMAs)
-        data = yf.download(tickers, period="1y", interval="1d", group_by='ticker')
+        data = yf.download(tickers, period="1y", interval="1d", group_by='ticker', threads=True)
         recommendations = []
         
         # Calculate dates for MTD and YTD
@@ -102,9 +203,15 @@ def get_recommendations():
         first_day_month = today.replace(day=1)
         first_day_year = today.replace(month=1, day=1)
 
+        # Handle the case where yf returns a single ticker dataframe if only one ticker is passed or fails
+        if isinstance(data.columns, pd.Index) and not isinstance(data.columns, pd.MultiIndex):
+            return pd.DataFrame()
+
+        available_tickers = data.columns.levels[0] if isinstance(data.columns, pd.MultiIndex) else []
+
         for ticker in tickers:
             try:
-                if ticker not in data.columns.levels[0]: continue
+                if ticker not in available_tickers: continue
                 ticker_data = data[ticker].dropna()
                 if len(ticker_data) < 50: continue # Need at least 50 days for EMA 50
                 
@@ -144,6 +251,8 @@ def get_recommendations():
                 
                 recommendations.append({
                     "Ticker": ticker,
+                    "Index": index_map.get(ticker, "Unknown"),
+                    "Sector": sector_map.get(ticker, "Unknown"),
                     "5D %": perf_5d,
                     "MTD %": perf_mtd,
                     "YTD %": perf_ytd,
@@ -160,6 +269,7 @@ def get_recommendations():
         df_rec = pd.DataFrame(recommendations)
         return df_rec
     except Exception as e:
+        st.error(f"Error in recommendations: {e}")
         return pd.DataFrame() # Return empty DF on error
 
 # --- Sidebar ---
@@ -174,6 +284,10 @@ ema_long = st.sidebar.slider("Long EMA Span", 20, 200, 50)
 
 # --- Main Page Execution ---
 st.title("📈 Stock Insight Dashboard")
+
+# Fetch market data for recommendations
+sp500_df = get_sp500_tickers()
+nasdaq_df = get_nasdaq100_tickers()
 
 if symbol:
     with st.spinner(f"Loading data for {symbol}..."):
@@ -341,45 +455,71 @@ if symbol:
 
         with tab4:
             st.subheader("🚀 Recommended Stocks")
-            st.write("Analyze and rank top performers with strategy-based buy targets. Targets **above** current price are greyed out.")
+            st.write("Analyze and rank top performers from major indices with strategy-based buy targets.")
             
-            # Sorting Selection
-            sort_col = st.radio("Rank by performance:", ["5D %", "MTD %", "YTD %"], horizontal=True)
+            # Index Selection
+            market_choice = st.multiselect("Select Market Indices:", ["S&P 500", "NASDAQ-100"], default=["S&P 500"])
             
-            with st.spinner(f"Analyzing market opportunities by {sort_col}..."):
-                rec_df = get_recommendations()
+            # Build the combined dataframe based on selection
+            selected_dfs = []
+            if "S&P 500" in market_choice: selected_dfs.append(sp500_df)
+            if "NASDAQ-100" in market_choice: selected_dfs.append(nasdaq_df)
             
-            if not rec_df.empty:
-                # Sort based on user selection
-                display_df = rec_df.sort_values(by=sort_col, ascending=False).head(10).copy()
+            if selected_dfs:
+                combined_market_df = pd.concat(selected_dfs).drop_duplicates(subset=['Ticker'])
                 
-                # Conditional Styling Function
-                def style_buys(val, current_price):
-                    if val > current_price:
-                        return 'color: #888888; text-decoration: line-through;'
-                    return ''
+                # Sector Selection
+                sectors = sorted(combined_market_df['Sector'].unique().tolist())
+                selected_sector = st.selectbox("Filter by Industry:", ["All"] + sectors)
+                
+                # Sorting Selection
+                sort_col = st.radio("Rank by performance:", ["5D %", "MTD %", "YTD %"], horizontal=True)
+                
+                with st.spinner(f"Analyzing {', '.join(market_choice)} market opportunities by {sort_col}..."):
+                    rec_df = get_recommendations(combined_market_df)
+                
+                if not rec_df.empty:
+                    # Filter by sector if not "All"
+                    if selected_sector != "All":
+                        filtered_df = rec_df[rec_df['Sector'] == selected_sector]
+                    else:
+                        filtered_df = rec_df
+                        
+                    # Sort based on user selection and take top 10
+                    display_df = filtered_df.sort_values(by=sort_col, ascending=False).head(10).copy()
+                    
+                    if not display_df.empty:
+                        # Conditional Styling Function
+                        def style_buys(val, current_price):
+                            if val > current_price:
+                                return 'color: #888888; text-decoration: line-through;'
+                            return ''
 
-                # We apply styling to specific columns
-                styled_df = display_df.style.apply(
-                    lambda row: [
-                        style_buys(row[col], row['Price']) if col in ['Limit I', 'Limit II', 'EMA 20', 'EMA 50'] else ''
-                        for col in row.index
-                    ], axis=1
-                ).format({
-                    "5D %": "{:,.2f}%",
-                    "MTD %": "{:,.2f}%",
-                    "YTD %": "{:,.2f}%",
-                    "Price": "${:,.2f}",
-                    "Limit I": "${:,.2f}",
-                    "Limit II": "${:,.2f}",
-                    "EMA 20": "${:,.2f}",
-                    "EMA 50": "${:,.2f}"
-                })
-                
-                st.dataframe(styled_df, use_container_width=True, height=400)
-                st.info(f"💡 **Tip:** Ranked by **{sort_col}**. Greyed-out targets with strikethrough are currently above the market price.")
+                        # We apply styling to specific columns
+                        styled_df = display_df.style.apply(
+                            lambda row: [
+                                style_buys(row[col], row['Price']) if col in ['Limit I', 'Limit II', 'EMA 20', 'EMA 50'] else ''
+                                for col in row.index
+                            ], axis=1
+                        ).format({
+                            "5D %": "{:,.2f}%",
+                            "MTD %": "{:,.2f}%",
+                            "YTD %": "{:,.2f}%",
+                            "Price": "${:,.2f}",
+                            "Limit I": "${:,.2f}",
+                            "Limit II": "${:,.2f}",
+                            "EMA 20": "${:,.2f}",
+                            "EMA 50": "${:,.2f}"
+                        })
+                        
+                        st.dataframe(styled_df, use_container_width=True, height=400)
+                        st.info(f"💡 **Tip:** Showing top 10 performers in **{selected_sector}** from **{', '.join(market_choice)}**. Greyed-out targets are above market price.")
+                    else:
+                        st.warning(f"No stocks found for the selection.")
+                else:
+                    st.error("Could not fetch recommendations at this time.")
             else:
-                st.error("Could not fetch recommendations at this time.")
+                st.warning("Please select at least one market index.")
 
     else:
         st.error(f"Ticker '{symbol}' not found or data unavailable.")

@@ -111,6 +111,16 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Educational Integration:** Added interactive expanders in the "Technicals" tab explaining the mechanics and trading strategies for **RSI** and **MACD**.
     * **Scanner Sync:** Updated the "Recommend Stocks" engine to utilize the new drawdown-based logic for consistent cross-app analysis.
 
+### **Iteration 8: Dynamic S&P 500 & Industry Categorization (Current)**
+
+* **Prompt:** Update the recommendation system to use dynamic S&P 500 data and categorize stocks by industry to show top 10 performers per category.
+* **Updates:**
+    * **Dynamic Data Sourcing:** Implemented `get_sp500_tickers()` to scrape the live S&P 500 list and GICS Sectors from Wikipedia, replacing the static list of 20 stocks with ~500 market leaders.
+    * **Industry Categorization:** Integrated sector-based analysis, allowing users to drill down into specific market segments (e.g., Tech, Energy, Industrials).
+    * **Advanced Filtering:** Added a sector selection dropdown in the "Recommend Stocks" tab for targeted market discovery.
+    * **Performance Ranking:** Upgraded the engine to calculate and display the **Top 10 performers** specifically within the selected industry for 5D, MTD, and YTD timeframes.
+    * **Optimization:** Enhanced caching strategy (24h for ticker list, 1h for price data) and enabled multi-threaded downloads in `yfinance` to handle the expanded dataset efficiently.
+
 ---
 
 ## 5. Achievement & Impact
