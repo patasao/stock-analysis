@@ -81,6 +81,10 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df['Resistance'] = df['High'].rolling(window=20).max()
     df['Support'] = df['Low'].rolling(window=20).min()
     
+    # Intraday Drawdown (20-day average)
+    df['Intraday_Drawdown_Pct'] = (df['Low'] - df['Open']) / df['Open']
+    df['Avg_Drawdown'] = df['Intraday_Drawdown_Pct'].rolling(window=20).mean()
+    
     return df
 
 # --- Recommendation Logic ---
@@ -132,12 +136,10 @@ def get_recommendations():
                 ema_50 = ticker_data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
                 
                 # PS Limit Buy Logic
-                today_open = float(ticker_data['Open'].iloc[-1])
-                yest_low = float(ticker_data['Low'].iloc[-2])
-                yest_open = float(ticker_data['Open'].iloc[-2])
+                drawdowns = (ticker_data['Low'] - ticker_data['Open']) / ticker_data['Open']
+                avg_drawdown = drawdowns.rolling(window=20).mean().iloc[-1]
                 
-                pct_change_yest = (yest_low - yest_open) / yest_open if yest_open != 0 else 0
-                limit_i = today_open * (1 + pct_change_yest)
+                limit_i = end_price * (1 + avg_drawdown)
                 limit_ii = limit_i * 0.97
                 
                 recommendations.append({
@@ -226,6 +228,17 @@ if symbol:
         with tab2:
             st.subheader("Advanced Technical Indicators")
             
+            # RSI Section
+            with st.expander("ℹ️ Understanding RSI & Strategy"):
+                st.markdown("""
+                **Relative Strength Index (RSI):**
+                - **What it is:** A momentum oscillator that measures the speed and change of price movements. It ranges from 0 to 100.
+                - **Strategy:**
+                    - **Overbought (>70):** Suggests the stock may be overvalued and a pullback or reversal could be imminent.
+                    - **Oversold (<30):** Suggests the stock may be undervalued and a bounce or recovery could be coming.
+                    - **Centerline (50):** Above 50 indicates bullish momentum; below 50 indicates bearish momentum.
+                """)
+
             # RSI Chart
             fig_rsi = go.Figure()
             fig_rsi.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='magenta', width=1.5), name="RSI"))
@@ -234,6 +247,17 @@ if symbol:
             fig_rsi.update_layout(title="RSI (14)", template="plotly_dark", height=250, margin=dict(l=10, r=10, t=40, b=10))
             st.plotly_chart(fig_rsi, use_container_width=True)
             
+            # MACD Section
+            with st.expander("ℹ️ Understanding MACD & Strategy"):
+                st.markdown("""
+                **Moving Average Convergence Divergence (MACD):**
+                - **What it is:** A trend-following momentum indicator that shows the relationship between two moving averages of a security’s price.
+                - **Strategy:**
+                    - **Signal Line Crossover:** A bullish signal occurs when the MACD line crosses above the Signal line; a bearish signal when it crosses below.
+                    - **Zero Line Crossover:** MACD crossing above zero indicates an strengthening uptrend; below zero indicates a strengthening downtrend.
+                    - **Histogram:** Shows the distance between MACD and Signal line. Expanding bars indicate increasing momentum.
+                """)
+
             # MACD Chart
             fig_macd = make_subplots(rows=1, cols=1)
             fig_macd.add_trace(go.Scatter(x=data.index, y=data['MACD'], line=dict(color='cyan', width=1), name="MACD"))
@@ -249,13 +273,11 @@ if symbol:
             st.info("Strategy-based entry limits and cost-averaging simulator.")
             
             # PS Strategy Logic
-            today_open = float(data['Open'].iloc[-1])
-            yest_low = float(data['Low'].iloc[-2])
-            yest_open = float(data['Open'].iloc[-2])
-
-            # PS Limit Buy I = (today's open + % change from yest's open to yest's lowest)
-            pct_change_yest = (yest_low - yest_open) / yest_open if yest_open != 0 else 0
-            r_limit_i = today_open * (1 + pct_change_yest)
+            avg_drawdown_val = float(data['Avg_Drawdown'].iloc[-1])
+            
+            # PS Limit Buy I = Current Price * (1 + Average Intraday Drawdown %)
+            # Note: avg_drawdown_val is typically negative
+            r_limit_i = curr_price * (1 + avg_drawdown_val)
             
             # PS Limit Buy II = Limit buy I - 3%
             r_limit_ii = r_limit_i * 0.97
@@ -289,7 +311,7 @@ if symbol:
             l_col1, l_col2 = st.columns(2)
             
             with l_col1:
-                st.metric("PS Limit I", f"${r_limit_i:,.2f}", help="Today's Open + % change from Yesterday's Open to Yesterday's Low")
+                st.metric("PS Limit I", f"${r_limit_i:,.2f}", help=f"Current Price * (1 + {avg_drawdown_val:.2%} Avg 20D Drawdown)")
                 new_avg = calc_new_avg(avg_cost, num_shares, r_limit_i, buy_amt)
                 st.caption(get_avg_display(new_avg, avg_cost))
             

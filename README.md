@@ -9,7 +9,7 @@ A professional-grade financial analysis web application built with **Streamlit**
 *   **Real-Time Data:** Powered by `yfinance` for up-to-the-minute stock and crypto price action.
 *   **Advanced Technical Indicators:** 
     *   **Trend:** Exponential Moving Averages (EMA 20 & 50) for trend identification.
-    *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence).
+    *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence) with **integrated strategy guides**.
     *   **Volatility:** ATR-based entry limits.
     *   **Structure:** 20-Day Support and Resistance discovery.
 *   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`.
@@ -58,7 +58,7 @@ The dashboard includes a specialized section for personal strategy evaluation, o
 4.  **Recommend Stocks:** Automated top 10 performance scanner with interactive sorting (5D/MTD/YTD) and multi-layer buy targets (PS Strategy + EMAs). Includes **dynamic visual cues** that grey out targets already exceeded by the current market price.
 
 ### Entry Targets
-*   **PS Limit I:** Today's Open adjusted by the percentage change between Yesterday's Open and Yesterday's Low.
+*   **PS Limit I:** Current Price adjusted by the 20-day Average Intraday Drawdown percentage.
 *   **PS Limit II:** A 3% reduction from PS Limit I.
 *   **ATR/EMA Targets:** Includes EMA 20, ATR Limit II (EMA 20 - 0.5 * ATR), and ATR Limit III (EMA 20 - 1.0 * ATR).
 

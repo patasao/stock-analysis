@@ -35,7 +35,7 @@ This proprietary module provides a custom specialized entry strategy based on in
 
 | Indicator | Formula Logic | Strategic Intent |
 | --- | --- | --- |
-| **Limit Buy I** | $Today's Open \times (1 + \frac{Yest Low - Yest Open}{Yest Open})$ | Dynamic entry based on prior day's price weakness. |
+| **Limit Buy I** | $Current Price \times (1 + Avg Intraday Drawdown\%)$ | Dynamic entry based on 20-day average price weakness relative to open. |
 | **Limit Buy II** | $Limit Buy I \times 0.97$ | 3% conservative safety buffer below primary target. |
 
 ### Cost Averaging Simulator
@@ -102,6 +102,14 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
         *   **Greys out and strikes through** any buy target that is already higher than the current price (not an active "dip").
         *   Maintains standard styling for active targets below current market price for a clean analytical look.
     * **Tab Architecture:** Expanded the main UI to 4 tabs, including the new **Recommend Stocks** scanner with styled interactive dataframes.
+
+### **Iteration 7: Strategy Refinement & Educational Content (Current)**
+
+* **Prompt:** Add explanations for RSI/MACD strategies and update PS Limit I calculation to use Average Intraday Drawdown.
+* **Updates:**
+    * **Logic Overhaul:** Refined **Limit Buy I** to factor in the 20-day **Average Intraday Drawdown** percentage, providing a more statistically grounded entry point than single-day price action.
+    * **Educational Integration:** Added interactive expanders in the "Technicals" tab explaining the mechanics and trading strategies for **RSI** and **MACD**.
+    * **Scanner Sync:** Updated the "Recommend Stocks" engine to utilize the new drawdown-based logic for consistent cross-app analysis.
 
 ---
 
