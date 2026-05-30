@@ -111,7 +111,7 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Educational Integration:** Added interactive expanders in the "Technicals" tab explaining the mechanics and trading strategies for **RSI** and **MACD**.
     * **Scanner Sync:** Updated the "Recommend Stocks" engine to utilize the new drawdown-based logic for consistent cross-app analysis.
 
-### **Iteration 8: Dynamic S&P 500 & Industry Categorization (Current)**
+### **Iteration 8: Dynamic S&P 500 & Industry Categorization**
 
 * **Prompt:** Update the recommendation system to use dynamic S&P 500 data and categorize stocks by industry to show top 10 performers per category.
 * **Updates:**
@@ -120,6 +120,29 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Advanced Filtering:** Added a sector selection dropdown in the "Recommend Stocks" tab for targeted market discovery.
     * **Performance Ranking:** Upgraded the engine to calculate and display the **Top 10 performers** specifically within the selected industry for 5D, MTD, and YTD timeframes.
     * **Optimization:** Enhanced caching strategy (24h for ticker list, 1h for price data) and enabled multi-threaded downloads in `yfinance` to handle the expanded dataset efficiently.
+
+### **Iteration 9: Technical KPIs & Advanced Recommendation Metrics**
+
+* **Prompt:** Add KPI cards for RSI and Trend status, and enhance recommendations with S&P 500 filtering and additional performance indicators.
+* **Updates:**
+    * **Technicals Tab Upgrade:**
+        * Integrated three new **KPI Metric Cards**: **RSI (14)** (with status), **Trend (EMA)** (with alignment logic), and **Sentiment** (MACD + RSI combined).
+        * Provided immediate visual feedback on market momentum and trend alignment.
+    * **Recommendation Engine Overhaul:**
+        * **Pure S&P 500 Focus:** Streamlined the scanner to focus exclusively on the S&P 500 for high-quality institutional setups.
+        * **New Performance Indicators:** Added **Volume Ratio** (Relative to 20D Avg), **RSI**, and **Distance from 52-Week High (%)** to the recommendation table.
+        * **Enhanced Sorting:** Enabled interactive ranking by these new technical factors, allowing users to find stocks based on volume spikes or momentum proximity to yearly highs.
+    * **Optimization:** Removed unused data fetching modules (NASDAQ-100) to further reduce dashboard startup time.
+
+### **Iteration 10: Gallery Redesign & Timeframe Standardization (Current)**
+
+* **Prompt:** Redesign the recommendation table into a visual card gallery and standardize all timeframes to 1M and 1Y.
+* **Updates:**
+    * **Visual Redesign:** Replaced the flat data table in "Recommend Stocks" with a high-impact **Opportunity Gallery**. Each card features a grid-based layout for better scannability.
+    * **Performance Matrix:** Redesigned the metrics display on each card to show **5D, 1M, and 1Y returns simultaneously**, providing a comprehensive momentum profile at a glance.
+    * **Standardization:** Renamed all "MTD" and "YTD" labels to **1M** (21-day trailing) and **1Y** (252-day trailing) for consistency with professional financial platforms.
+    * **Visual Status Indicators:** Implemented **✅ Bold** and **~~Strikethrough~~** logic for entry targets within the cards to clearly separate active dips from stale targets.
+    * **Educational Content:** Integrated a "How to interpret" expander in the recommendations tab to teach users how to utilize Volume Ratios and 52W High proximity for strategy discovery.
 
 ---
 

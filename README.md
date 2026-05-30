@@ -8,14 +8,19 @@ A professional-grade financial analysis web application built with **Streamlit**
 ## ✨ Features
 *   **Real-Time Data:** Powered by `yfinance` for up-to-the-minute stock and crypto price action.
 *   **Advanced Technical Indicators:** 
-    *   **Trend:** Exponential Moving Averages (EMA 20 & 50) for trend identification.
-    *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence) with **integrated strategy guides**.
+    *   **Trend:** Exponential Moving Averages (EMA 20 & 50) with **Trend KPI cards** (Uptrend/Downtrend).
+    *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence) with **integrated strategy guides** and **Sentiment KPIs**.
     *   **Volatility:** ATR-based entry limits.
     *   **Structure:** 20-Day Support and Resistance discovery.
 *   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`.
 *   **Performance Optimized:** Integrated `@st.cache_data` for efficient data fetching and responsive UI.
 *   **PS's Analysis:** A proprietary trading module that calculates custom entry limits and simulates "New Average Cost" for portfolio scaling.
-*   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes interactive multi-timeframe sorting (5D, MTD, YTD) and multi-layer buy targets.
+*   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes:
+    *   **Opportunity Gallery:** Visual card-based layout for high-impact analysis.
+    *   **Performance Matrix:** Simultaneous display of **5D, 1M, and 1Y** returns on every card.
+    *   **Technical Metrics:** RSI, Volume Ratio, and Distance to 52-Week High.
+    *   **Interactive Sorting:** Rank performers by performance (5D, 1M, 1Y) or technical factors (RSI, Volume).
+    *   **Strategic Buy Targets:** Integrated PS Strategy + EMA targets with **dynamic visual cues** (✅ for active dips).
 
 ## 🛠️ Local Setup
 
@@ -54,12 +59,14 @@ The core libraries used in this project are:
 ## 📊 Strategy Logic: PS's Analysis
 The dashboard includes a specialized section for personal strategy evaluation, organized into four tabs:
 1.  **Overview:** Real-time metrics and price action chart.
-2.  **Technicals:** Detailed RSI and MACD analysis.
+2.  **Technicals:** Detailed RSI and MACD analysis with **Live KPI Cards** and warning signs (⚠️).
 3.  **PS's Analysis:** Strategy-based entry targets and cost-averaging simulator.
 4.  **Recommend Stocks:** Automated top 10 performance scanner using the **S&P 500** dataset. Features include:
+    *   **Visual Cards:** Grid-based layout replacing flat tables for better scanning.
+    *   **Comprehensive Performance:** 5D, 1M, and 1Y deltas shown for every stock.
+    *   **Advanced Indicators:** Includes Volume Ratio (>1x indicates high interest) and 52W High % (proximity to yearly peaks).
     *   **Industry Filtering:** Drill down into specific sectors (e.g., Tech, Health Care, Energy).
-    *   **Interactive Sorting:** Rank performers by 5D, MTD, or YTD returns.
-    *   **Strategic Buy Targets:** Integrated PS Strategy + EMA targets with **dynamic visual cues** that grey out targets already exceeded by the current market price.
+    *   **Strategic Buy Targets:** Integrated targets with **dynamic visual cues**.
 
 
 ### Entry Targets

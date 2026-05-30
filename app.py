@@ -222,21 +222,21 @@ def get_recommendations(tickers_df):
                 start_price_5d = float(ticker_data['Close'].iloc[-5]) if len(ticker_data) >= 5 else float(ticker_data['Close'].iloc[0])
                 perf_5d = ((end_price - start_price_5d) / start_price_5d) * 100
                 
-                # MTD performance
-                mtd_data = ticker_data[ticker_data.index >= first_day_month.strftime('%Y-%m-%d')]
-                if not mtd_data.empty:
-                    start_price_mtd = float(mtd_data['Close'].iloc[0])
-                    perf_mtd = ((end_price - start_price_mtd) / start_price_mtd) * 100
+                # 1M performance (approx 21 trading days)
+                if len(ticker_data) >= 21:
+                    start_price_1m = float(ticker_data['Close'].iloc[-21])
+                    perf_1m = ((end_price - start_price_1m) / start_price_1m) * 100
                 else:
-                    perf_mtd = 0.0
+                    perf_1m = 0.0
 
-                # YTD performance
-                ytd_data = ticker_data[ticker_data.index >= first_day_year.strftime('%Y-%m-%d')]
-                if not ytd_data.empty:
-                    start_price_ytd = float(ytd_data['Close'].iloc[0])
-                    perf_ytd = ((end_price - start_price_ytd) / start_price_ytd) * 100
+                # 1Y performance (approx 252 trading days)
+                if len(ticker_data) >= 252:
+                    start_price_1y = float(ticker_data['Close'].iloc[-252])
+                    perf_1y = ((end_price - start_price_1y) / start_price_1y) * 100
                 else:
-                    perf_ytd = 0.0
+                    # Fallback to earliest available if less than a year
+                    start_price_1y = float(ticker_data['Close'].iloc[0])
+                    perf_1y = ((end_price - start_price_1y) / start_price_1y) * 100
                 
                 # EMAs
                 ema_20 = ticker_data['Close'].ewm(span=20, adjust=False).mean().iloc[-1]
@@ -249,14 +249,34 @@ def get_recommendations(tickers_df):
                 limit_i = end_price * (1 + avg_drawdown)
                 limit_ii = limit_i * 0.97
                 
+                # RSI calculation
+                delta = ticker_data['Close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi_series = 100 - (100 / (1 + rs))
+                latest_rsi = rsi_series.iloc[-1]
+                
+                # Volume Ratio (Latest vs 20D Avg)
+                avg_vol = ticker_data['Volume'].tail(20).mean()
+                latest_vol = ticker_data['Volume'].iloc[-1]
+                vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0
+                
+                # 52-Week High and Distance
+                high_52w = ticker_data['High'].tail(252).max()
+                dist_52w = ((end_price - high_52w) / high_52w) * 100
+                
                 recommendations.append({
                     "Ticker": ticker,
                     "Index": index_map.get(ticker, "Unknown"),
                     "Sector": sector_map.get(ticker, "Unknown"),
-                    "5D %": perf_5d,
-                    "MTD %": perf_mtd,
-                    "YTD %": perf_ytd,
                     "Price": end_price,
+                    "5D %": perf_5d,
+                    "1M %": perf_1m,
+                    "1Y %": perf_1y,
+                    "RSI": latest_rsi,
+                    "Vol Ratio": vol_ratio,
+                    "52W High %": dist_52w,
                     "Limit I": limit_i,
                     "Limit II": limit_ii,
                     "EMA 20": ema_20,
@@ -287,7 +307,6 @@ st.title("📈 Stock Insight Dashboard")
 
 # Fetch market data for recommendations
 sp500_df = get_sp500_tickers()
-nasdaq_df = get_nasdaq100_tickers()
 
 if symbol:
     with st.spinner(f"Loading data for {symbol}..."):
@@ -342,6 +361,29 @@ if symbol:
         with tab2:
             st.subheader("Advanced Technical Indicators")
             
+            # KPI Cards for Technicals
+            t_col1, t_col2, t_col3 = st.columns(3)
+            
+            # RSI KPI
+            rsi_val = float(data['RSI'].iloc[-1])
+            rsi_status = "Overbought ⚠️" if rsi_val > 70 else "Oversold ⚠️" if rsi_val < 30 else "Neutral"
+            t_col1.metric("RSI (14)", f"{rsi_val:.2f}", rsi_status)
+            
+            # Trend KPI
+            ema_20 = float(data['EMA_1'].iloc[-1])
+            ema_long_val = float(data['EMA_2'].iloc[-1])
+            trend = "Uptrend 📈" if ema_20 > ema_long_val else "Downtrend 📉"
+            trend_delta = "Bullish Alignment" if curr_price > ema_20 > ema_long_val else "Bearish Alignment" if curr_price < ema_20 < ema_long_val else "Neutral/Mixed"
+            t_col2.metric("Trend (EMA)", trend, trend_delta)
+            
+            # Bullish/Bearish KPI
+            macd_val = float(data['MACD'].iloc[-1])
+            signal_val = float(data['Signal_Line'].iloc[-1])
+            is_bullish = macd_val > signal_val and rsi_val > 50
+            sentiment = "Bullish 🐂" if is_bullish else "Bearish 🐻"
+            sentiment_detail = "MACD & RSI Positive" if is_bullish else "Momentum/RSI Weak"
+            t_col3.metric("Sentiment", sentiment, sentiment_detail)
+
             # RSI Section
             with st.expander("ℹ️ Understanding RSI & Strategy"):
                 st.markdown("""
@@ -454,28 +496,42 @@ if symbol:
                 st.caption(get_avg_display(new_avg, avg_cost))
 
         with tab4:
-            st.subheader("🚀 Recommended Stocks")
-            st.write("Analyze and rank top performers from major indices with strategy-based buy targets.")
+            st.subheader("🚀 Recommended Stocks (S&P 500)")
+            st.write("Analyze and rank top performers from the S&P 500 with advanced technical indicators.")
             
-            # Index Selection
-            market_choice = st.multiselect("Select Market Indices:", ["S&P 500", "NASDAQ-100"], default=["S&P 500"])
-            
-            # Build the combined dataframe based on selection
-            selected_dfs = []
-            if "S&P 500" in market_choice: selected_dfs.append(sp500_df)
-            if "NASDAQ-100" in market_choice: selected_dfs.append(nasdaq_df)
-            
-            if selected_dfs:
-                combined_market_df = pd.concat(selected_dfs).drop_duplicates(subset=['Ticker'])
+            # Educational Content for Recommendations
+            with st.expander("ℹ️ How to interpret these indicators"):
+                st.markdown("""
+                **Advanced Technical Metrics:**
+                - **Volume Ratio:** Current volume divided by the 20-day average. 
+                    - *> 1.0x:* Indicates higher than usual interest (breakouts or heavy selling).
+                    - *> 2.0x:* Often signals "Institutional Buying" or a significant news event.
+                - **RSI (14):** Momentum indicator (0-100).
+                    - *High (>70):* Strong momentum, but watch for pullbacks.
+                    - *Low (<30):* Potential oversold bounce opportunity.
+                - **52W High %:** How far the price is from its 1-year peak.
+                    - *Closer to 0%:* Indicates extreme "Relative Strength" (stocks hitting new highs often keep going).
+                    - *Large Negative:* Deep value or a broken trend.
                 
+                **Strategy Tip:** Look for stocks with a **Volume Ratio > 1.2x** and **52W High % > -5%** for high-probability momentum setups.
+                """)
+            
+            # Build the dataframe for S&P 500
+            combined_market_df = sp500_df
+            
+            if not combined_market_df.empty:
                 # Sector Selection
                 sectors = sorted(combined_market_df['Sector'].unique().tolist())
                 selected_sector = st.selectbox("Filter by Industry:", ["All"] + sectors)
                 
                 # Sorting Selection
-                sort_col = st.radio("Rank by performance:", ["5D %", "MTD %", "YTD %"], horizontal=True)
+                st.write("**Rank by technical factor:**")
+                sort_col = st.radio("Select metric:", ["5D %", "1M %", "1Y %", "RSI", "Vol Ratio", "52W High %"], horizontal=True)
                 
-                with st.spinner(f"Analyzing {', '.join(market_choice)} market opportunities by {sort_col}..."):
+                # Logic for sorting direction
+                ascending = True if sort_col == "RSI" else False # Low RSI might be "better" for value, but high for momentum. Let's keep False for most as "highest" is usually "best" performance.
+                
+                with st.spinner(f"Analyzing S&P 500 market opportunities by {sort_col}..."):
                     rec_df = get_recommendations(combined_market_df)
                 
                 if not rec_df.empty:
@@ -486,40 +542,65 @@ if symbol:
                         filtered_df = rec_df
                         
                     # Sort based on user selection and take top 10
-                    display_df = filtered_df.sort_values(by=sort_col, ascending=False).head(10).copy()
+                    display_df = filtered_df.sort_values(by=sort_col, ascending=ascending).head(10).copy()
                     
                     if not display_df.empty:
-                        # Conditional Styling Function
-                        def style_buys(val, current_price):
-                            if val > current_price:
-                                return 'color: #888888; text-decoration: line-through;'
-                            return ''
-
-                        # We apply styling to specific columns
-                        styled_df = display_df.style.apply(
-                            lambda row: [
-                                style_buys(row[col], row['Price']) if col in ['Limit I', 'Limit II', 'EMA 20', 'EMA 50'] else ''
-                                for col in row.index
-                            ], axis=1
-                        ).format({
-                            "5D %": "{:,.2f}%",
-                            "MTD %": "{:,.2f}%",
-                            "YTD %": "{:,.2f}%",
-                            "Price": "${:,.2f}",
-                            "Limit I": "${:,.2f}",
-                            "Limit II": "${:,.2f}",
-                            "EMA 20": "${:,.2f}",
-                            "EMA 50": "${:,.2f}"
-                        })
+                        st.write("---")
+                        st.write(f"### 🔥 Top 10 Opportunities ({selected_sector})")
                         
-                        st.dataframe(styled_df, use_container_width=True, height=400)
-                        st.info(f"💡 **Tip:** Showing top 10 performers in **{selected_sector}** from **{', '.join(market_choice)}**. Greyed-out targets are above market price.")
+                        # Create a grid of cards (2 columns)
+                        for i in range(0, len(display_df), 2):
+                            cols = st.columns(2)
+                            for j in range(2):
+                                if i + j < len(display_df):
+                                    row = display_df.iloc[i + j]
+                                    with cols[j]:
+                                        # Card Container
+                                        with st.container(border=True):
+                                            header_col1, header_col2 = st.columns([1, 1.2])
+                                            header_col1.subheader(f"{row['Ticker']}")
+                                            header_col1.caption(f"{row['Sector']}")
+                                            
+                                            # Price & Main Sort Metric
+                                            header_col2.metric("Price", f"${row['Price']:,.2f}")
+                                            
+                                            # Performance Metrics Row
+                                            p_col1, p_col2, p_col3 = st.columns(3)
+                                            p_col1.metric("5D", "", f"{row['5D %']:+.2f}%")
+                                            p_col2.metric("1M", "", f"{row['1M %']:+.2f}%")
+                                            p_col3.metric("1Y", "", f"{row['1Y %']:+.2f}%")
+                                            
+                                            st.divider()
+                                            
+                                            # Technical Highlights
+                                            t_col1, t_col2, t_col3 = st.columns(3)
+                                            t_col1.markdown(f"**RSI**\n{row['RSI']:.1f}")
+                                            t_col2.markdown(f"**Volume**\n{row['Vol Ratio']:.1f}x")
+                                            t_col3.markdown(f"**52W High**\n{row['52W High %']:.1f}%")
+                                            
+                                            st.divider()
+                                            
+                                            # Buy Targets
+                                            st.markdown("**Entry Targets:**")
+                                            tar_col1, tar_col2 = st.columns(2)
+                                            
+                                            def format_target(val, curr):
+                                                if val < curr:
+                                                    return f"✅ **${val:,.2f}**"
+                                                return f"~~${val:,.2f}~~"
+
+                                            tar_col1.markdown(f"Limit I: {format_target(row['Limit I'], row['Price'])}")
+                                            tar_col1.markdown(f"Limit II: {format_target(row['Limit II'], row['Price'])}")
+                                            tar_col2.markdown(f"EMA 20: {format_target(row['EMA 20'], row['Price'])}")
+                                            tar_col2.markdown(f"EMA 50: {format_target(row['EMA 50'], row['Price'])}")
+
+                        st.info(f"💡 **Tip:** ✅ indicates targets below current market price (active dips). Strikethrough indicates targets already exceeded.")
                     else:
                         st.warning(f"No stocks found for the selection.")
                 else:
                     st.error("Could not fetch recommendations at this time.")
             else:
-                st.warning("Please select at least one market index.")
+                st.warning("S&P 500 data is unavailable.")
 
     else:
         st.error(f"Ticker '{symbol}' not found or data unavailable.")
