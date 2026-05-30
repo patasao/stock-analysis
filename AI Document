@@ -134,7 +134,7 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
         * **Enhanced Sorting:** Enabled interactive ranking by these new technical factors, allowing users to find stocks based on volume spikes or momentum proximity to yearly highs.
     * **Optimization:** Removed unused data fetching modules (NASDAQ-100) to further reduce dashboard startup time.
 
-### **Iteration 10: Gallery Redesign & Timeframe Standardization (Current)**
+### **Iteration 10: Gallery Redesign & Timeframe Standardization**
 
 * **Prompt:** Redesign the recommendation table into a visual card gallery and standardize all timeframes to 1M and 1Y.
 * **Updates:**
@@ -143,6 +143,18 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Standardization:** Renamed all "MTD" and "YTD" labels to **1M** (21-day trailing) and **1Y** (252-day trailing) for consistency with professional financial platforms.
     * **Visual Status Indicators:** Implemented **✅ Bold** and **~~Strikethrough~~** logic for entry targets within the cards to clearly separate active dips from stale targets.
     * **Educational Content:** Integrated a "How to interpret" expander in the recommendations tab to teach users how to utilize Volume Ratios and 52W High proximity for strategy discovery.
+
+### **Iteration 11: Interactive Scanning & Momentum Filtering (Current)**
+
+* **Prompt:** Add interactive slicers for Volume, RSI, and 52W High with momentum defaults, and simplify performance ranking.
+* **Updates:**
+    * **Technical Slicers:** Implemented interactive **Number Inputs and Sliders** for the recommendation scanner, allowing real-time adjustment of technical thresholds.
+    * **Momentum Strategy Defaults:** Established high-conviction default filters for the scanner:
+        * **Volume Ratio:** >= 1.5x (Institutional Interest).
+        * **RSI (14):** 30 - 70 (Healthy Momentum).
+        * **52W High %:** >= -5% (Relative Strength).
+    * **Simplified Ranking:** Consolidated ranking options to focus exclusively on performance timeframes (**5D, 1M, 1Y**), enabling users to find the fastest-moving stocks within their technical criteria.
+    * **UX Enhancement:** Integrated warning emojis (**⚠️**) into RSI KPIs to alert users of extreme Overbought (>70) or Oversold (<30) conditions.
 
 ---
 

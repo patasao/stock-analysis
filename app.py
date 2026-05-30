@@ -524,29 +524,40 @@ if symbol:
                 sectors = sorted(combined_market_df['Sector'].unique().tolist())
                 selected_sector = st.selectbox("Filter by Industry:", ["All"] + sectors)
                 
+                # Technical Filters (Slicers)
+                st.write("**Technical Filters:**")
+                f_col1, f_col2, f_col3 = st.columns(3)
+                
+                vol_threshold = f_col1.number_input("Min Volume Ratio", value=1.5, step=0.1, help="Current Volume / 20D Avg Volume")
+                rsi_range = f_col2.slider("RSI (14) Range", 0, 100, (30, 70), help="Momentum range (30-70 is standard momentum)")
+                high_threshold = f_col3.slider("Max Distance to 52W High (%)", -100, 0, -5, help="Closer to 0 is stronger relative strength")
+
                 # Sorting Selection
-                st.write("**Rank by technical factor:**")
-                sort_col = st.radio("Select metric:", ["5D %", "1M %", "1Y %", "RSI", "Vol Ratio", "52W High %"], horizontal=True)
+                st.write("**Rank by performance timeframe:**")
+                sort_col = st.radio("Select timeframe:", ["5D %", "1M %", "1Y %"], horizontal=True)
                 
-                # Logic for sorting direction
-                ascending = True if sort_col == "RSI" else False # Low RSI might be "better" for value, but high for momentum. Let's keep False for most as "highest" is usually "best" performance.
-                
-                with st.spinner(f"Analyzing S&P 500 market opportunities by {sort_col}..."):
+                with st.spinner(f"Scanning S&P 500 for setups by {sort_col}..."):
                     rec_df = get_recommendations(combined_market_df)
                 
                 if not rec_df.empty:
+                    # Apply technical filters based on slicers
+                    filtered_df = rec_df[
+                        (rec_df['Vol Ratio'] >= vol_threshold) & 
+                        (rec_df['RSI'] >= rsi_range[0]) & (rec_df['RSI'] <= rsi_range[1]) &
+                        (rec_df['52W High %'] >= high_threshold)
+                    ]
+
                     # Filter by sector if not "All"
                     if selected_sector != "All":
-                        filtered_df = rec_df[rec_df['Sector'] == selected_sector]
-                    else:
-                        filtered_df = rec_df
+                        filtered_df = filtered_df[filtered_df['Sector'] == selected_sector]
                         
                     # Sort based on user selection and take top 10
-                    display_df = filtered_df.sort_values(by=sort_col, ascending=ascending).head(10).copy()
+                    display_df = filtered_df.sort_values(by=sort_col, ascending=False).head(10).copy()
                     
                     if not display_df.empty:
                         st.write("---")
-                        st.write(f"### 🔥 Top 10 Opportunities ({selected_sector})")
+                        st.write(f"### 🔥 Top {len(display_df)} Momentum Opportunities ({selected_sector})")
+                        st.caption(f"Filters: Volume > {vol_threshold}x, RSI {rsi_range[0]}-{rsi_range[1]}, 52W High > {high_threshold}%")
                         
                         # Create a grid of cards (2 columns)
                         for i in range(0, len(display_df), 2):

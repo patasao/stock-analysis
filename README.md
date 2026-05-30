@@ -16,10 +16,11 @@ A professional-grade financial analysis web application built with **Streamlit**
 *   **Performance Optimized:** Integrated `@st.cache_data` for efficient data fetching and responsive UI.
 *   **PS's Analysis:** A proprietary trading module that calculates custom entry limits and simulates "New Average Cost" for portfolio scaling.
 *   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes:
+    *   **Interactive Slicers:** Real-time filters for **Volume Ratio**, **RSI**, and **52W High %** proximity.
+    *   **Momentum Defaults:** Pre-configured high-probability scanning criteria (Vol > 1.5x, RSI 30-70, 52W High > -5%).
     *   **Opportunity Gallery:** Visual card-based layout for high-impact analysis.
     *   **Performance Matrix:** Simultaneous display of **5D, 1M, and 1Y** returns on every card.
-    *   **Technical Metrics:** RSI, Volume Ratio, and Distance to 52-Week High.
-    *   **Interactive Sorting:** Rank performers by performance (5D, 1M, 1Y) or technical factors (RSI, Volume).
+    *   **Interactive Sorting:** Rank performers by performance timeframes (5D, 1M, 1Y).
     *   **Strategic Buy Targets:** Integrated PS Strategy + EMA targets with **dynamic visual cues** (✅ for active dips).
 
 ## 🛠️ Local Setup
@@ -61,11 +62,10 @@ The dashboard includes a specialized section for personal strategy evaluation, o
 1.  **Overview:** Real-time metrics and price action chart.
 2.  **Technicals:** Detailed RSI and MACD analysis with **Live KPI Cards** and warning signs (⚠️).
 3.  **PS's Analysis:** Strategy-based entry targets and cost-averaging simulator.
-4.  **Recommend Stocks:** Automated top 10 performance scanner using the **S&P 500** dataset. Features include:
+4.  **Recommend Stocks:** Automated high-conviction momentum scanner. Features include:
+    *   **Dynamic Filtering:** Customizable slicers for technical thresholds.
     *   **Visual Cards:** Grid-based layout replacing flat tables for better scanning.
     *   **Comprehensive Performance:** 5D, 1M, and 1Y deltas shown for every stock.
-    *   **Advanced Indicators:** Includes Volume Ratio (>1x indicates high interest) and 52W High % (proximity to yearly peaks).
-    *   **Industry Filtering:** Drill down into specific sectors (e.g., Tech, Health Care, Energy).
     *   **Strategic Buy Targets:** Integrated targets with **dynamic visual cues**.
 
 
