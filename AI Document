@@ -146,13 +146,13 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
 
 ### **Iteration 11: Interactive Scanning & Momentum Filtering**
 
-* **Prompt:** Add interactive slicers for Volume, RSI, and 52W High with momentum defaults, and simplify performance ranking.
+* **Prompt:** Add interactive slicers for Volume, RSI, and 10D Drawdown with core strategy defaults, and simplify performance ranking.
 * **Updates:**
     * **Technical Slicers:** Implemented interactive **Number Inputs and Sliders** for the recommendation scanner, allowing real-time adjustment of technical thresholds.
-    * **Momentum Strategy Defaults:** Established high-conviction default filters for the scanner:
-        * **Volume Ratio:** >= 1.5x (Institutional Interest).
-        * **RSI (14):** 30 - 70 (Healthy Momentum).
-        * **52W High %:** >= -5% (Relative Strength).
+    * **Core Strategy Defaults:** Established high-conviction default filters for the scanner that match the Trading Entry Rules:
+        * **Volume Ratio:** >= 1.6x (Institutional Interest).
+        * **RSI (14):** 42 - 58 (Entry sweet spot).
+        * **10D Drawdown %:** >= 8% (Core pullback requirement).
     * **Simplified Ranking:** Consolidated ranking options to focus exclusively on performance timeframes (**5D, 1M, 1Y**), enabling users to find the fastest-moving stocks within their technical criteria.
     * **UX Enhancement:** Integrated warning emojis (**⚠️**) into RSI KPIs to alert users of extreme Overbought (>70) or Oversold (<30) conditions.
 
@@ -173,8 +173,12 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Risk Management Integration:**
         * Implemented hard **Risk Fails** (e.g., RSI > 68 or Price > 8% above EMA20) that override high scores to prevent FOMO entries.
         * Added mandatory **Stop Loss** (-8% to -10%) and **Portfolio Cap** (15% per stock) rules to the Technicals tab.
-    * **UI/UX Enhancement:** Developed a visual "Scoring Dashboard" in the Technicals tab with color-coded alerts and a detailed checklist expander for transparency.
-    * **Educational Content Expansion:** Integrated new interactive expanders explaining the logic of the **Scoring System** and the strategic importance of **EMA 20, 50, and 100** as institutional buy targets.
+    *   **UI/UX Enhancement:** Developed a visual "Scoring Dashboard" in the Technicals tab with color-coded alerts and a detailed checklist expander for transparency.
+    *   **Scoring Integration in Recommendations:**
+        *   Integrated the **Composite Trading Entry Score** (A+, B, Avoid, etc.) directly into the recommendation gallery cards, allowing users to see the technical setup quality alongside performance data.
+        *   Refactored the data engine to run full technical analysis on every S&P 500 candidate to generate these real-time entry scores.
+    *   **Educational Content Expansion:** Integrated new interactive expanders explaining the logic of the **Scoring System** and the strategic importance of **EMA 20, 50, and 100** as institutional buy targets.
+
 
 
 

@@ -20,9 +20,9 @@ A professional-grade financial analysis web application built with **Streamlit**
     *   **Position Sizing:** Integrated guidance based on setup quality.
     *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
 *   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes:
-    *   **Interactive Slicers:** Real-time filters for **Volume Ratio**, **RSI**, and **52W High %** proximity.
-    *   **Momentum Defaults:** Pre-configured high-probability scanning criteria (Vol > 1.5x, RSI 30-70, 52W High > -5%).
-    *   **Opportunity Gallery:** Visual card-based layout for high-impact analysis.
+    *   **Interactive Slicers:** Real-time filters for **Volume Ratio**, **RSI**, and **10D Drawdown %**.
+    *   **Core Strategy Defaults:** Pre-configured high-probability criteria (Vol >= 1.6x, RSI 42-58, 10D Drawdown >= 8%).
+    *   **Opportunity Gallery:** Visual card-based layout featuring **real-time Trading Entry Scores** for every stock.
     *   **Performance Matrix:** Simultaneous display of **5D, 1M, and 1Y** returns on every card.
     *   **Interactive Sorting:** Rank performers by performance timeframes (5D, 1M, 1Y).
     *   **Strategic Buy Targets:** Integrated **EMA 20, 50, and 100** targets with **dynamic visual cues** (✅ for active dips).

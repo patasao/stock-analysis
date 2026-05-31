@@ -213,6 +213,46 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     
     return df
 
+def get_entry_score(row):
+    # Core Conditions
+    c1 = ((row['Price'] - row['High_10d']) / row['High_10d']) <= -0.08
+    ema20_dist = (row['Price'] - row['EMA 20']) / row['EMA 20']
+    c2 = abs(ema20_dist) <= 0.06
+    c3 = 42 <= row['RSI'] <= 58
+    c4 = row['Vol Ratio'] >= 1.6
+    c5 = row['MACD'] > row['Signal']
+    
+    core_score = sum([c1, c2, c3, c4, c5])
+    
+    # Supporting Conditions
+    s1 = row['Price'] > row['EMA 50']
+    s2 = row['MACD'] > row['Signal']
+    s3 = (0.78 * row['High_52w']) <= row['Price'] <= (0.94 * row['High_52w'])
+    s4 = row['Price'] > row['EMA 100']
+    s5 = row['ADX'] > 20
+    s6 = row['Price'] > row['BB_Mid']
+    s7 = row['Stoch_RSI'] < 75
+    
+    supp_score = sum([s1, s2, s3, s4, s5, s6, s7])
+    
+    # Risk Rules
+    risk_fail_rsi = row['RSI'] > 68
+    risk_fail_ema20 = ema20_dist > 0.08
+    
+    entry_level = "Avoid"
+    if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2):
+        entry_level = "Avoid"
+    elif core_score >= 4 and supp_score >= 3:
+        entry_level = "A+"
+    elif core_score >= 4 and supp_score >= 2:
+        entry_level = "A"
+    elif core_score >= 4:
+        entry_level = "B"
+    elif core_score == 3:
+        entry_level = "C"
+        
+    return entry_level
+
 # --- Recommendation Logic ---
 @st.cache_data(ttl=3600)
 def get_recommendations(tickers_df):
@@ -228,11 +268,6 @@ def get_recommendations(tickers_df):
         data = yf.download(tickers, period="1y", interval="1d", group_by='ticker', threads=True)
         recommendations = []
         
-        # Calculate dates for MTD and YTD
-        today = datetime.now()
-        first_day_month = today.replace(day=1)
-        first_day_year = today.replace(month=1, day=1)
-
         # Handle the case where yf returns a single ticker dataframe if only one ticker is passed or fails
         if isinstance(data.columns, pd.Index) and not isinstance(data.columns, pd.MultiIndex):
             return pd.DataFrame()
@@ -245,52 +280,38 @@ def get_recommendations(tickers_df):
                 ticker_data = data[ticker].dropna()
                 if len(ticker_data) < 50: continue # Need at least 50 days for EMA 50
                 
+                # Use calculate_indicators to get full set for scoring
+                full_data = calculate_indicators(ticker_data)
+                latest = full_data.iloc[-1]
+                
                 # Latest Close
-                end_price = float(ticker_data['Close'].iloc[-1])
+                end_price = float(latest['Close'])
                 
                 # 5-day performance
                 start_price_5d = float(ticker_data['Close'].iloc[-5]) if len(ticker_data) >= 5 else float(ticker_data['Close'].iloc[0])
                 perf_5d = ((end_price - start_price_5d) / start_price_5d) * 100
                 
-                # 1M performance (approx 21 trading days)
+                # 1M performance
                 if len(ticker_data) >= 21:
                     start_price_1m = float(ticker_data['Close'].iloc[-21])
                     perf_1m = ((end_price - start_price_1m) / start_price_1m) * 100
                 else:
                     perf_1m = 0.0
 
-                # 1Y performance (approx 252 trading days)
+                # 1Y performance
                 if len(ticker_data) >= 252:
                     start_price_1y = float(ticker_data['Close'].iloc[-252])
                     perf_1y = ((end_price - start_price_1y) / start_price_1y) * 100
                 else:
-                    # Fallback to earliest available if less than a year
                     start_price_1y = float(ticker_data['Close'].iloc[0])
                     perf_1y = ((end_price - start_price_1y) / start_price_1y) * 100
                 
-                # EMAs
-                ema_20 = ticker_data['Close'].ewm(span=20, adjust=False).mean().iloc[-1]
-                ema_50 = ticker_data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
-                ema_100 = ticker_data['Close'].ewm(span=100, adjust=False).mean().iloc[-1]
-                
-                # RSI calculation
-                delta = ticker_data['Close'].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                rs = gain / loss
-                rsi_series = 100 - (100 / (1 + rs))
-                latest_rsi = rsi_series.iloc[-1]
-                
-                # Volume Ratio (Latest vs 20D Avg)
+                # Volume Ratio
                 avg_vol = ticker_data['Volume'].tail(20).mean()
                 latest_vol = ticker_data['Volume'].iloc[-1]
                 vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0
                 
-                # 52-Week High and Distance
-                high_52w = ticker_data['High'].tail(252).max()
-                dist_52w = ((end_price - high_52w) / high_52w) * 100
-                
-                recommendations.append({
+                rec_row = {
                     "Ticker": ticker,
                     "Index": index_map.get(ticker, "Unknown"),
                     "Sector": sector_map.get(ticker, "Unknown"),
@@ -298,13 +319,25 @@ def get_recommendations(tickers_df):
                     "5D %": perf_5d,
                     "1M %": perf_1m,
                     "1Y %": perf_1y,
-                    "RSI": latest_rsi,
+                    "RSI": latest['RSI'],
                     "Vol Ratio": vol_ratio,
-                    "52W High %": dist_52w,
-                    "EMA 20": ema_20,
-                    "EMA 50": ema_50,
-                    "EMA 100": ema_100
-                })
+                    "52W High %": ((end_price - latest['High_52w']) / latest['High_52w']) * 100,
+                    "EMA 20": latest['EMA_1'],
+                    "EMA 50": latest['EMA_2'],
+                    "EMA 100": latest['EMA_100'],
+                    "High_10d": latest['High_10d'],
+                    "High_52w": latest['High_52w'],
+                    "MACD": latest['MACD'],
+                    "Signal": latest['Signal_Line'],
+                    "ADX": latest['ADX'],
+                    "BB_Mid": latest['BB_Mid'],
+                    "Stoch_RSI": latest['Stoch_RSI']
+                }
+                
+                # Add Entry Score
+                rec_row["Entry Score"] = get_entry_score(rec_row)
+                
+                recommendations.append(rec_row)
             except:
                 continue
             
@@ -626,9 +659,9 @@ if symbol:
                 st.write("**Technical Filters:**")
                 f_col1, f_col2, f_col3 = st.columns(3)
                 
-                vol_threshold = f_col1.number_input("Min Volume Ratio", value=1.5, step=0.1, help="Current Volume / 20D Avg Volume")
-                rsi_range = f_col2.slider("RSI (14) Range", 0, 100, (30, 70), help="Momentum range (30-70 is standard momentum)")
-                high_threshold = f_col3.slider("Max Distance to 52W High (%)", -100, 0, -5, help="Closer to 0 is stronger relative strength")
+                vol_threshold = f_col1.number_input("Min Volume Ratio", value=1.6, step=0.1, help="Core Rule: Volume Ratio >= 1.6x")
+                rsi_range = f_col2.slider("RSI (14) Range", 0, 100, (42, 58), help="Core Rule: RSI between 42 and 58")
+                dd_threshold = f_col3.slider("Min 10D Drawdown (%)", 0, 30, 8, help="Core Rule: Price pullback >= 8% from 10-day high")
 
                 # Sorting Selection
                 st.write("**Rank by performance timeframe:**")
@@ -638,11 +671,14 @@ if symbol:
                     rec_df = get_recommendations(combined_market_df)
                 
                 if not rec_df.empty:
+                    # Calculate 10D Drawdown for filtering
+                    rec_df['10D DD %'] = ((rec_df['Price'] - rec_df['High_10d']) / rec_df['High_10d']) * 100
+                    
                     # Apply technical filters based on slicers
                     filtered_df = rec_df[
                         (rec_df['Vol Ratio'] >= vol_threshold) & 
                         (rec_df['RSI'] >= rsi_range[0]) & (rec_df['RSI'] <= rsi_range[1]) &
-                        (rec_df['52W High %'] >= high_threshold)
+                        (rec_df['10D DD %'] <= -dd_threshold)
                     ]
 
                     # Filter by sector if not "All"
@@ -655,7 +691,7 @@ if symbol:
                     if not display_df.empty:
                         st.write("---")
                         st.write(f"### 🔥 Top {len(display_df)} Momentum Opportunities ({selected_sector})")
-                        st.caption(f"Filters: Volume > {vol_threshold}x, RSI {rsi_range[0]}-{rsi_range[1]}, 52W High > {high_threshold}%")
+                        st.caption(f"Filters: Volume > {vol_threshold}x, RSI {rsi_range[0]}-{rsi_range[1]}, 10D Drawdown >= {dd_threshold}%")
                         
                         # Create a grid of cards (2 columns)
                         for i in range(0, len(display_df), 2):
@@ -683,9 +719,9 @@ if symbol:
                                             
                                             # Technical Highlights
                                             t_col1, t_col2, t_col3 = st.columns(3)
-                                            t_col1.markdown(f"**RSI**\n{row['RSI']:.1f}")
-                                            t_col2.markdown(f"**Volume**\n{row['Vol Ratio']:.1f}x")
-                                            t_col3.markdown(f"**52W High**\n{row['52W High %']:.1f}%")
+                                            t_col1.markdown(f"**Entry Score**\n### {row['Entry Score']}")
+                                            t_col2.markdown(f"**RSI**\n{row['RSI']:.1f}")
+                                            t_col3.markdown(f"**Volume**\n{row['Vol Ratio']:.1f}x")
                                             
                                             st.divider()
                                             
