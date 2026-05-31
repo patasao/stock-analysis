@@ -144,7 +144,7 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Visual Status Indicators:** Implemented **✅ Bold** and **~~Strikethrough~~** logic for entry targets within the cards to clearly separate active dips from stale targets.
     * **Educational Content:** Integrated a "How to interpret" expander in the recommendations tab to teach users how to utilize Volume Ratios and 52W High proximity for strategy discovery.
 
-### **Iteration 11: Interactive Scanning & Momentum Filtering (Current)**
+### **Iteration 11: Interactive Scanning & Momentum Filtering**
 
 * **Prompt:** Add interactive slicers for Volume, RSI, and 52W High with momentum defaults, and simplify performance ranking.
 * **Updates:**
@@ -155,6 +155,28 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
         * **52W High %:** >= -5% (Relative Strength).
     * **Simplified Ranking:** Consolidated ranking options to focus exclusively on performance timeframes (**5D, 1M, 1Y**), enabling users to find the fastest-moving stocks within their technical criteria.
     * **UX Enhancement:** Integrated warning emojis (**⚠️**) into RSI KPIs to alert users of extreme Overbought (>70) or Oversold (<30) conditions.
+
+### **Iteration 12: Composite Trading Strategy & Scoring System (Current)**
+
+* **Prompt:** Implement a Trading Entry Rules (Composite Strategy) with a scoring system, remove the proprietary PS's Analysis tab, and standardize recommendation targets to EMAs.
+* **Updates:**
+    * **Strategic Consolidation:** Removed the "PS's Analysis" tab to focus on a more comprehensive, rule-based technical framework.
+    * **New Indicators:** Integrated **EMA 100**, **ADX (14)**, **Bollinger Bands**, and **Stochastic RSI** to power a sophisticated entry evaluation engine.
+    * **Composite Entry Rules:** Developed a 12-point scoring system split into:
+        * **Core Conditions (5):** Drawdown from 10-day high (>= 8%), EMA20 alignment (±6%), RSI stability (42-58), Volume Ratio (>= 1.6x), and MACD Crossover.
+        * **Supporting Conditions (7):** Trend alignment (EMA50/EMA100), 52-week high proximity (78-94%), ADX strength (>20), Bollinger Band positioning, and Stochastic RSI levels (<75).
+    * **Automated Scoring System:**
+        * Built a real-time logic engine that calculates an **Entry Strength Level** (A+, A, B, C, or Avoid) based on condition fulfillment.
+        * Integrated **Position Sizing Guidance** (e.g., A+ = 100%, B = 50-60%) directly linked to the score.
+    * **EMA KPI Integration:** Added a dedicated row of metric cards in the Technicals tab displaying **EMA 20, 50, and 100** values with strategic tooltips for immediate target identification.
+    * **Standardized Recommendation Targets:** Updated the "Recommend Stocks" tab to remove the specialized PS Limit Buy targets, standardizing the Opportunity Gallery to display **EMA 20, 50, and 100** as the primary entry targets for institutional setups.
+    * **Risk Management Integration:**
+        * Implemented hard **Risk Fails** (e.g., RSI > 68 or Price > 8% above EMA20) that override high scores to prevent FOMO entries.
+        * Added mandatory **Stop Loss** (-8% to -10%) and **Portfolio Cap** (15% per stock) rules to the Technicals tab.
+    * **UI/UX Enhancement:** Developed a visual "Scoring Dashboard" in the Technicals tab with color-coded alerts and a detailed checklist expander for transparency.
+    * **Educational Content Expansion:** Integrated new interactive expanders explaining the logic of the **Scoring System** and the strategic importance of **EMA 20, 50, and 100** as institutional buy targets.
+
+
 
 ---
 

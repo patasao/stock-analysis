@@ -150,6 +150,7 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     # EMAs
     df['EMA_1'] = df['Close'].ewm(span=ema_span_1, adjust=False).mean()
     df['EMA_2'] = df['Close'].ewm(span=ema_span_2, adjust=False).mean()
+    df['EMA_100'] = df['Close'].ewm(span=100, adjust=False).mean()
     
     # ATR (14-period)
     high_low = df['High'] - df['Low']
@@ -166,6 +167,11 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
+    # Stochastic RSI
+    rsi_min = df['RSI'].rolling(window=14).min()
+    rsi_max = df['RSI'].rolling(window=14).max()
+    df['Stoch_RSI'] = (df['RSI'] - rsi_min) / (rsi_max - rsi_min) * 100
+    
     # MACD
     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
@@ -176,6 +182,30 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     # Support/Resistance (20-day)
     df['Resistance'] = df['High'].rolling(window=20).max()
     df['Support'] = df['Low'].rolling(window=20).min()
+    
+    # Bollinger Bands (20-day)
+    df['BB_Mid'] = df['Close'].rolling(window=20).mean()
+    df['BB_Std'] = df['Close'].rolling(window=20).std()
+    df['BB_Upper'] = df['BB_Mid'] + (2 * df['BB_Std'])
+    df['BB_Lower'] = df['BB_Mid'] - (2 * df['BB_Std'])
+    
+    # ADX (14-period)
+    plus_dm = df['High'].diff()
+    minus_dm = df['Low'].diff()
+    plus_dm = plus_dm.where(plus_dm > 0, 0)
+    minus_dm = minus_dm.where(minus_dm < 0, 0).abs()
+    
+    tr = true_range.rolling(14).mean() # Simplified smooth TR
+    plus_di = 100 * (plus_dm.rolling(14).mean() / tr)
+    minus_di = 100 * (minus_dm.rolling(14).mean() / tr)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    df['ADX'] = dx.rolling(14).mean()
+    
+    # 52-Week High
+    df['High_52w'] = df['High'].rolling(window=252, min_periods=1).max()
+    
+    # 10-Day High (for Drawdown)
+    df['High_10d'] = df['High'].rolling(window=10, min_periods=1).max()
     
     # Intraday Drawdown (20-day average)
     df['Intraday_Drawdown_Pct'] = (df['Low'] - df['Open']) / df['Open']
@@ -241,13 +271,7 @@ def get_recommendations(tickers_df):
                 # EMAs
                 ema_20 = ticker_data['Close'].ewm(span=20, adjust=False).mean().iloc[-1]
                 ema_50 = ticker_data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
-                
-                # PS Limit Buy Logic
-                drawdowns = (ticker_data['Low'] - ticker_data['Open']) / ticker_data['Open']
-                avg_drawdown = drawdowns.rolling(window=20).mean().iloc[-1]
-                
-                limit_i = end_price * (1 + avg_drawdown)
-                limit_ii = limit_i * 0.97
+                ema_100 = ticker_data['Close'].ewm(span=100, adjust=False).mean().iloc[-1]
                 
                 # RSI calculation
                 delta = ticker_data['Close'].diff()
@@ -277,10 +301,9 @@ def get_recommendations(tickers_df):
                     "RSI": latest_rsi,
                     "Vol Ratio": vol_ratio,
                     "52W High %": dist_52w,
-                    "Limit I": limit_i,
-                    "Limit II": limit_ii,
                     "EMA 20": ema_20,
-                    "EMA 50": ema_50
+                    "EMA 50": ema_50,
+                    "EMA 100": ema_100
                 })
             except:
                 continue
@@ -323,13 +346,14 @@ if symbol:
         
         ema_short_val = float(data['EMA_1'].iloc[-1])
         ema_long_val = float(data['EMA_2'].iloc[-1])
+        ema_100_val = float(data['EMA_100'].iloc[-1])
         atr_val = float(data['ATR'].iloc[-1])
         rsi_val = float(data['RSI'].iloc[-1])
         res_val = float(data['Resistance'].iloc[-1])
         sup_val = float(data['Support'].iloc[-1])
         
         # Tabs
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🔍 Technicals", "⭐ PS's Analysis", "🚀 Recommend Stocks"])
+        tab1, tab2, tab3 = st.tabs(["📊 Overview", "🔍 Technicals", "🚀 Recommend Stocks"])
         
         with tab1:
             # Metrics Row
@@ -384,6 +408,152 @@ if symbol:
             sentiment_detail = "MACD & RSI Positive" if is_bullish else "Momentum/RSI Weak"
             t_col3.metric("Sentiment", sentiment, sentiment_detail)
 
+            # EMA Targets row
+            e_col1, e_col2, e_col3 = st.columns(3)
+            e_col1.metric("EMA 20", f"${ema_short_val:,.2f}", help="Short-term momentum support")
+            e_col2.metric("EMA 50", f"${ema_long_val:,.2f}", help="Medium-term institutional support")
+            e_col3.metric("EMA 100", f"${ema_100_val:,.2f}", help="Long-term value support")
+
+            st.write("---")
+            st.subheader("🎯 Trading Entry Rules (Composite Strategy)")
+            
+            with st.expander("ℹ️ How the Scoring System Works"):
+                st.markdown("""
+                **The Goal:** This system combines 12 technical filters to find "high-probability" setups where momentum meets value.
+                
+                **1. Core Conditions (The Foundation):**
+                - **Drawdown:** We look for a >= 8% pullback from recent highs to avoid "buying the top."
+                - **EMA20 Alignment:** Price should be within ±6% of the EMA20. If it's too far above, it's overextended.
+                - **RSI (42-58):** This "sweet spot" ensures the stock has momentum but isn't overbought.
+                - **Volume Ratio (>= 1.6x):** High volume confirms that "big money" (institutions) is entering the position.
+                
+                **2. Supporting Conditions (The Conviction):**
+                - These indicators (EMA50/100, ADX, Bollinger Bands) measure the strength of the underlying trend. The more conditions met, the higher the "Relative Strength."
+                
+                **3. Risk Overrides (The Safety):**
+                - If the **RSI is > 68** or the price is **> 8% above the EMA20**, the system will automatically signal **Avoid**, regardless of other scores. This prevents FOMO (Fear Of Missing Out) buying.
+                """)
+
+            with st.expander("ℹ️ Understanding Entry Price Targets (EMAs)"):
+                st.markdown("""
+                **Why use EMAs as Buy Targets?**
+                Institutions and algorithms often use Moving Averages as support levels to build large positions.
+                
+                - **EMA 20 (Fast):** The "Momentum Line." Best for aggressive traders looking for quick bounces in strong uptrends.
+                - **EMA 50 (Medium):** The "Institutional Line." This is where major funds often defend their positions. It's the most common "buy the dip" level.
+                - **EMA 100 (Slow):** The "Value Line." Provides a high margin of safety. Buying here often represents a significant correction within a long-term bull market.
+                """)
+            
+            # Scoring System Logic
+            # Core Conditions
+            high_10d = data['High_10d'].iloc[-1]
+            drawdown_10d = (curr_price - high_10d) / high_10d
+            c1 = drawdown_10d <= -0.08
+            
+            ema20_dist = (curr_price - ema_short_val) / ema_short_val
+            c2 = abs(ema20_dist) <= 0.06
+            
+            c3 = 42 <= rsi_val <= 58
+            
+            latest_vol = data['Volume'].iloc[-1]
+            avg_vol = data['Volume'].rolling(20).mean().iloc[-1]
+            vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0
+            c4 = vol_ratio >= 1.6
+            
+            c5 = macd_val > signal_val
+            
+            core_conditions = [c1, c2, c3, c4, c5]
+            core_score = sum(core_conditions)
+            
+            # Supporting Conditions
+            s1 = curr_price > ema_long_val # EMA50
+            s2 = macd_val > signal_val
+            high_52w = data['High_52w'].iloc[-1]
+            s3 = (0.78 * high_52w) <= curr_price <= (0.94 * high_52w)
+            s4 = curr_price > ema_100_val
+            adx_val = data['ADX'].iloc[-1]
+            s5 = adx_val > 20
+            bb_mid = data['BB_Mid'].iloc[-1]
+            s6 = curr_price > bb_mid
+            stoch_rsi = data['Stoch_RSI'].iloc[-1]
+            s7 = stoch_rsi < 75
+            
+            supporting_conditions = [s1, s2, s3, s4, s5, s6, s7]
+            supp_score = sum(supporting_conditions)
+            
+            # Risk Rules
+            risk_fail_rsi = rsi_val > 68
+            risk_fail_ema20 = ema20_dist > 0.08
+            
+            # Entry Strength
+            entry_level = "Avoid"
+            pos_size = "0%"
+            color = "red"
+            
+            if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2):
+                entry_level = "Avoid"
+                pos_size = "No Entry (Risk/Core Failure)"
+                color = "red"
+            elif core_score >= 4 and supp_score >= 3:
+                entry_level = "A+"
+                pos_size = "Full size (100%)"
+                color = "green"
+            elif core_score >= 4 and supp_score >= 2:
+                entry_level = "A"
+                pos_size = "70-80%"
+                color = "lightgreen"
+            elif core_score >= 4:
+                entry_level = "B"
+                pos_size = "50-60%"
+                color = "orange"
+            elif core_score == 3:
+                entry_level = "C"
+                pos_size = "30-40%"
+                color = "yellow"
+
+            # Display Scoring
+            score_col1, score_col2 = st.columns([1, 2])
+            with score_col1:
+                st.markdown(f"""
+                <div style="background-color: {color}; padding: 20px; border-radius: 10px; text-align: center; color: black;">
+                    <h1 style="margin: 0;">{entry_level}</h1>
+                    <p style="margin: 0; font-weight: bold;">{pos_size}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with score_col2:
+                st.write(f"**Core Conditions:** {core_score}/5")
+                st.write(f"**Supporting Conditions:** {supp_score}/7")
+                if risk_fail_rsi: st.error("⚠️ Risk: RSI too high (> 68)")
+                if risk_fail_ema20: st.error("⚠️ Risk: Too far above EMA20 (> 8%)")
+
+            # Details Expander
+            with st.expander("🔍 View Checklist Details"):
+                c_col1, c_col2 = st.columns(2)
+                with c_col1:
+                    st.write("**Core Conditions**")
+                    st.write(f"{'✅' if c1 else '❌'} Drawdown >= 8% ({drawdown_10d:.1%})")
+                    st.write(f"{'✅' if c2 else '❌'} Within ±6% EMA20 ({ema20_dist:.1%})")
+                    st.write(f"{'✅' if c3 else '❌'} RSI 42-58 ({rsi_val:.1f})")
+                    st.write(f"{'✅' if c4 else '❌'} Vol Ratio >= 1.6x ({vol_ratio:.1f}x)")
+                    st.write(f"{'✅' if c5 else '❌'} MACD > Signal")
+                
+                with c_col2:
+                    st.write("**Supporting Conditions**")
+                    st.write(f"{'✅' if s1 else '❌'} Above EMA50")
+                    st.write(f"{'✅' if s2 else '❌'} MACD > Signal")
+                    st.write(f"{'✅' if s3 else '❌'} 78%-94% of 52W High")
+                    st.write(f"{'✅' if s4 else '❌'} Above EMA100")
+                    st.write(f"{'✅' if s5 else '❌'} ADX > 20 ({adx_val:.1f})")
+                    st.write(f"{'✅' if s6 else '❌'} Above BB Middle")
+                    st.write(f"{'✅' if s7 else '❌'} Stoch RSI < 75 ({stoch_rsi:.1f})")
+
+            st.info("""
+            **Additional Risk Rules:**
+            - Maximum position size per stock = 15% of Growth Portfolio
+            - Always set Stop Loss at -8% to -10% from entry price
+            """)
+
             # RSI Section
             with st.expander("ℹ️ Understanding RSI & Strategy"):
                 st.markdown("""
@@ -424,78 +594,6 @@ if symbol:
             st.plotly_chart(fig_macd, use_container_width=True)
 
         with tab3:
-            st.subheader("PS's Custom Analysis")
-            st.warning("⚠️ **Notice:** This analysis is for **educational purposes only**. This is a personal strategy simulator, not financial advice or an investment recommendation. Always conduct your own research and consider market risks before trading.")
-            st.info("Strategy-based entry limits and cost-averaging simulator.")
-            
-            # PS Strategy Logic
-            avg_drawdown_val = float(data['Avg_Drawdown'].iloc[-1])
-            
-            # PS Limit Buy I = Current Price * (1 + Average Intraday Drawdown %)
-            # Note: avg_drawdown_val is typically negative
-            r_limit_i = curr_price * (1 + avg_drawdown_val)
-            
-            # PS Limit Buy II = Limit buy I - 3%
-            r_limit_ii = r_limit_i * 0.97
-            
-            # ATR/EMA Limits
-            limit_i = ema_short_val
-            limit_ii = ema_short_val - (0.5 * atr_val)
-            limit_iii = ema_short_val - (1.0 * atr_val)
-
-            # Simulator Inputs
-            p_col1, p_col2, p_col3 = st.columns(3)
-            avg_cost = p_col1.number_input("Your Average Cost ($)", value=0.0, step=0.1, format="%.2f")
-            num_shares = p_col2.number_input("Shares Owned", value=0.0, step=1.0)
-            buy_amt = p_col3.number_input("Planned Buy (Shares)", value=0.0, step=1.0)
-
-            def calc_new_avg(old_avg, old_qty, buy_price, buy_qty):
-                if old_qty + buy_qty == 0: return 0
-                return ((old_avg * old_qty) + (buy_price * buy_qty)) / (old_qty + buy_qty)
-
-            def get_avg_display(new_avg, old_avg):
-                if old_avg == 0:
-                    return f"New Avg: **${new_avg:,.2f}**"
-                if new_avg < old_avg:
-                    return f"New Avg: **${new_avg:,.2f}** 🟢 ↓"
-                elif new_avg > old_avg:
-                    return f"New Avg: **${new_avg:,.2f}** 🔴 ↑"
-                else:
-                    return f"New Avg: **${new_avg:,.2f}**"
-
-            st.write("### Entry Targets")
-            l_col1, l_col2 = st.columns(2)
-            
-            with l_col1:
-                st.metric("PS Limit I", f"${r_limit_i:,.2f}", help=f"Current Price * (1 + {avg_drawdown_val:.2%} Avg 20D Drawdown)")
-                new_avg = calc_new_avg(avg_cost, num_shares, r_limit_i, buy_amt)
-                st.caption(get_avg_display(new_avg, avg_cost))
-            
-            with l_col2:
-                st.metric("PS Limit II", f"${r_limit_ii:,.2f}", help="PS Limit I - 3%")
-                new_avg = calc_new_avg(avg_cost, num_shares, r_limit_ii, buy_amt)
-                st.caption(get_avg_display(new_avg, avg_cost))
-
-            st.write("---")
-            st.write("### ATR/EMA Entry Targets")
-            a_col1, a_col2, a_col3 = st.columns(3)
-            
-            with a_col1:
-                st.metric("EMA 20 Limit", f"${limit_i:,.2f}", help="Current Short EMA (20-day) value")
-                new_avg = calc_new_avg(avg_cost, num_shares, limit_i, buy_amt)
-                st.caption(get_avg_display(new_avg, avg_cost))
-                
-            with a_col2:
-                st.metric("ATR Limit II", f"${limit_ii:,.2f}", help="EMA 20 - (0.5 * ATR)")
-                new_avg = calc_new_avg(avg_cost, num_shares, limit_ii, buy_amt)
-                st.caption(get_avg_display(new_avg, avg_cost))
-                
-            with a_col3:
-                st.metric("ATR Limit III", f"${limit_iii:,.2f}", help="EMA 20 - (1.0 * ATR)")
-                new_avg = calc_new_avg(avg_cost, num_shares, limit_iii, buy_amt)
-                st.caption(get_avg_display(new_avg, avg_cost))
-
-        with tab4:
             st.subheader("🚀 Recommended Stocks (S&P 500)")
             st.write("Analyze and rank top performers from the S&P 500 with advanced technical indicators.")
             
@@ -593,17 +691,16 @@ if symbol:
                                             
                                             # Buy Targets
                                             st.markdown("**Entry Targets:**")
-                                            tar_col1, tar_col2 = st.columns(2)
+                                            tar_col1, tar_col2, tar_col3 = st.columns(3)
                                             
                                             def format_target(val, curr):
                                                 if val < curr:
                                                     return f"✅ **${val:,.2f}**"
                                                 return f"~~${val:,.2f}~~"
 
-                                            tar_col1.markdown(f"Limit I: {format_target(row['Limit I'], row['Price'])}")
-                                            tar_col1.markdown(f"Limit II: {format_target(row['Limit II'], row['Price'])}")
-                                            tar_col2.markdown(f"EMA 20: {format_target(row['EMA 20'], row['Price'])}")
+                                            tar_col1.markdown(f"EMA 20: {format_target(row['EMA 20'], row['Price'])}")
                                             tar_col2.markdown(f"EMA 50: {format_target(row['EMA 50'], row['Price'])}")
+                                            tar_col3.markdown(f"EMA 100: {format_target(row['EMA 100'], row['Price'])}")
 
                         st.info(f"💡 **Tip:** ✅ indicates targets below current market price (active dips). Strikethrough indicates targets already exceeded.")
                     else:

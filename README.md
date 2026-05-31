@@ -13,15 +13,19 @@ A professional-grade financial analysis web application built with **Streamlit**
     *   **Volatility:** ATR-based entry limits.
     *   **Structure:** 20-Day Support and Resistance discovery.
 *   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`.
-*   **Performance Optimized:** Integrated `@st.cache_data` for efficient data fetching and responsive UI.
-*   **PS's Analysis:** A proprietary trading module that calculates custom entry limits and simulates "New Average Cost" for portfolio scaling.
+*   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, and EMA targets.
+*   **Performance Optimized:** Integrated `@st.cache_data` for data fetching and responsive UI.
+*   **Trading Entry Rules (Composite Strategy):** A sophisticated rule-based engine that evaluates stock setups using a 12-point scoring system (Core & Supporting conditions). Features include:
+    *   **Automated Scoring:** Real-time calculation of entry strength (A+, A, B, C, or Avoid).
+    *   **Position Sizing:** Integrated guidance based on setup quality.
+    *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
 *   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes:
     *   **Interactive Slicers:** Real-time filters for **Volume Ratio**, **RSI**, and **52W High %** proximity.
     *   **Momentum Defaults:** Pre-configured high-probability scanning criteria (Vol > 1.5x, RSI 30-70, 52W High > -5%).
     *   **Opportunity Gallery:** Visual card-based layout for high-impact analysis.
     *   **Performance Matrix:** Simultaneous display of **5D, 1M, and 1Y** returns on every card.
     *   **Interactive Sorting:** Rank performers by performance timeframes (5D, 1M, 1Y).
-    *   **Strategic Buy Targets:** Integrated PS Strategy + EMA targets with **dynamic visual cues** (✅ for active dips).
+    *   **Strategic Buy Targets:** Integrated **EMA 20, 50, and 100** targets with **dynamic visual cues** (✅ for active dips).
 
 ## 🛠️ Local Setup
 
@@ -57,29 +61,19 @@ The core libraries used in this project are:
 *   `plotly` - Interactive charts
 *   `lxml` - For scraping Wikipedia tables
 
-## 📊 Strategy Logic: PS's Analysis
-The dashboard includes a specialized section for personal strategy evaluation, organized into four tabs:
+## 📊 Strategy Logic: Composite Entry System
+The dashboard utilizes a multi-factor model to rank stock opportunities, organized into three tabs:
 1.  **Overview:** Real-time metrics and price action chart.
-2.  **Technicals:** Detailed RSI and MACD analysis with **Live KPI Cards** and warning signs (⚠️).
-3.  **PS's Analysis:** Strategy-based entry targets and cost-averaging simulator.
-4.  **Recommend Stocks:** Automated high-conviction momentum scanner. Features include:
-    *   **Dynamic Filtering:** Customizable slicers for technical thresholds.
-    *   **Visual Cards:** Grid-based layout replacing flat tables for better scanning.
-    *   **Comprehensive Performance:** 5D, 1M, and 1Y deltas shown for every stock.
-    *   **Strategic Buy Targets:** Integrated targets with **dynamic visual cues**.
+2.  **Technicals:** Detailed RSI, MACD, and **Trading Entry Scoring System**.
+3.  **Recommend Stocks:** Automated high-conviction momentum scanner.
 
+### Scoring Criteria
+*   **Core Conditions (5):** Focused on drawdown (>= 8% from 10D high), EMA20 alignment, RSI stability (42-58), volume expansion (>= 1.6x), and MACD crossovers.
+*   **Supporting Conditions (7):** Includes trend alignment (EMA50/100), relative strength (52W high proximity), ADX strength, and volatility bands (Bollinger).
 
-### Entry Targets
-*   **PS Limit I:** Current Price adjusted by the 20-day Average Intraday Drawdown percentage.
-*   **PS Limit II:** A 3% reduction from PS Limit I.
-*   **ATR/EMA Targets:** Includes EMA 20, ATR Limit II (EMA 20 - 0.5 * ATR), and ATR Limit III (EMA 20 - 1.0 * ATR).
-
-### Cost Averaging Simulator
-Dynamic calculation of your new position basis with real-time feedback:
-*   **Tooltips:** Detailed calculation methods visible on hover (i).
-*   **Trend Indicators:** Visual cues (🟢 ↓ or 🔴 ↑) showing if the new average is better or worse than your current cost.
-
-$$NewAvg = \frac{(CurrentAvg \times CurrentQty) + (LimitPrice \times PurchaseQty)}{CurrentQty + PurchaseQty}$$
+### Risk Management
+*   **Hard Overrides:** Automatic "Avoid" signal if RSI > 68 or price is > 8% above EMA 20.
+*   **Safety Standards:** Mandatory stop-loss guidance (-8% to -10%) and position capping (15% per stock).
 
 ## ⚠️ Disclaimer
 This analysis represents a personal trading strategy and does not constitute financial advice. Investment involves risk; please conduct your own due diligence before committing capital.
