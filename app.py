@@ -581,50 +581,149 @@ if symbol:
                     st.write(f"{'✅' if s6 else '❌'} Above BB Middle")
                     st.write(f"{'✅' if s7 else '❌'} Stoch RSI < 75 ({stoch_rsi:.1f})")
 
-            st.info("""
-            **Additional Risk Rules:**
-            - Maximum position size per stock = 15% of Growth Portfolio
-            - Always set Stop Loss at -8% to -10% from entry price
-            """)
-
-            # RSI Section
-            with st.expander("ℹ️ Understanding RSI & Strategy"):
-                st.markdown("""
-                **Relative Strength Index (RSI):**
-                - **What it is:** A momentum oscillator that measures the speed and change of price movements. It ranges from 0 to 100.
-                - **Strategy:**
-                    - **Overbought (>70):** Suggests the stock may be overvalued and a pullback or reversal could be imminent.
-                    - **Oversold (<30):** Suggests the stock may be undervalued and a bounce or recovery could be coming.
-                    - **Centerline (50):** Above 50 indicates bullish momentum; below 50 indicates bearish momentum.
-                """)
-
-            # RSI Chart
-            fig_rsi = go.Figure()
-            fig_rsi.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='magenta', width=1.5), name="RSI"))
-            fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
-            fig_rsi.add_hline(y=30, line_dash="dash", line_color="green")
-            fig_rsi.update_layout(title="RSI (14)", template="plotly_dark", height=250, margin=dict(l=10, r=10, t=40, b=10))
-            st.plotly_chart(fig_rsi, use_container_width=True)
+            st.write("---")
+            st.subheader("🚩 Trading Exit Rules (Risk & Profit Management)")
             
-            # MACD Section
-            with st.expander("ℹ️ Understanding MACD & Strategy"):
+            with st.expander("ℹ️ How the Exit Strategy Works"):
                 st.markdown("""
-                **Moving Average Convergence Divergence (MACD):**
-                - **What it is:** A trend-following momentum indicator that shows the relationship between two moving averages of a security’s price.
-                - **Strategy:**
-                    - **Signal Line Crossover:** A bullish signal occurs when the MACD line crosses above the Signal line; a bearish signal when it crosses below.
-                    - **Zero Line Crossover:** MACD crossing above zero indicates an strengthening uptrend; below zero indicates a strengthening downtrend.
-                    - **Histogram:** Shows the distance between MACD and Signal line. Expanding bars indicate increasing momentum.
+                **The Goal:** To protect capital and lock in gains using a systematic approach rather than emotional decision-making.
+                
+                **1. Protective Exits (Defense):**
+                - **Hard Stop (-8% to -10%):** The absolute maximum loss allowed. 
+                - **Trailing Stop (EMA 20):** If the price closes below the EMA 20, the short-term trend has likely broken.
+                
+                **2. Offensive Exits (Profit Taking):**
+                - **Resistance/Targets:** Selling near the 20D Resistance or at +15-20% gains.
+                - **Bollinger Band Extension:** Selling when price is outside the Upper BB (overextended).
+                
+                **3. Momentum Exits (Trend Change):**
+                - **MACD Bearish Cross:** When the blue line crosses below the orange line.
+                - **RSI Reversal:** When RSI drops back below 70 after being overbought.
                 """)
 
-            # MACD Chart
-            fig_macd = make_subplots(rows=1, cols=1)
-            fig_macd.add_trace(go.Scatter(x=data.index, y=data['MACD'], line=dict(color='cyan', width=1), name="MACD"))
-            fig_macd.add_trace(go.Scatter(x=data.index, y=data['Signal_Line'], line=dict(color='orange', width=1), name="Signal"))
-            colors = ['green' if x >= 0 else 'red' for x in data['MACD_Hist']]
-            fig_macd.add_trace(go.Bar(x=data.index, y=data['MACD_Hist'], marker_color=colors, name="Histogram"))
-            fig_macd.update_layout(title="MACD", template="plotly_dark", height=250, margin=dict(l=10, r=10, t=40, b=10))
-            st.plotly_chart(fig_macd, use_container_width=True)
+            # Exit Logic
+            # 1. Trailing Stop
+            ex1 = curr_price < ema_short_val
+            # 2. MACD Cross
+            ex2 = macd_val < signal_val
+            # 3. RSI Overbought Reversal
+            ex3 = rsi_val > 70
+            # 4. Bollinger Band Exit
+            bb_upper = data['BB_Upper'].iloc[-1]
+            ex4 = curr_price >= bb_upper
+            # 5. Resistance Exit
+            ex5 = curr_price >= (res_val * 0.98) # Within 2% of resistance
+
+            exit_score = sum([ex1, ex2, ex3, ex4, ex5])
+            
+            exit_level = "Hold"
+            exit_color = "gray"
+            exit_action = "Maintain Position"
+            
+            if exit_score >= 3 or ex1: # EMA 20 break is a strong signal
+                exit_level = "SELL / REDUCE"
+                exit_color = "red"
+                exit_action = "Exit or Trim 50-100%"
+            elif exit_score >= 1:
+                exit_level = "CAUTION"
+                exit_color = "orange"
+                exit_action = "Tighten Stop Loss"
+            
+            # Display Exit Scoring
+            exit_sc_col1, exit_sc_col2 = st.columns([1, 2])
+            with exit_sc_col1:
+                st.markdown(f"""
+                <div style="background-color: {exit_color}; padding: 20px; border-radius: 10px; text-align: center; color: white;">
+                    <h2 style="margin: 0;">{exit_level}</h2>
+                    <p style="margin: 0; font-weight: bold;">{exit_action}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with exit_sc_col2:
+                st.write(f"**Exit Signals Triggered:** {exit_score}/5")
+                st.write(f"{'🔴' if ex1 else '⚪'} Price below EMA 20 (Trend Break)")
+                st.write(f"{'🔴' if ex2 else '⚪'} MACD Bearish Crossover")
+                st.write(f"{'🔴' if ex3 else '⚪'} RSI Overbought (>70)")
+                st.write(f"{'🔴' if ex4 else '⚪'} Price at Upper Bollinger Band")
+                st.write(f"{'🔴' if ex5 else '⚪'} Price near 20D Resistance")
+
+            st.write("---")
+            st.subheader("📊 Interactive Multi-Indicator Analysis")
+            
+            selected_indicators = st.multiselect(
+                "Select indicators to overlay or view:",
+                options=["EMAs (20, 50, 100)", "Bollinger Bands", "Support/Resistance", "RSI", "MACD", "ADX"],
+                default=["EMAs (20, 50, 100)", "RSI"]
+            )
+
+            # Unified Chart Logic
+            rows = 1
+            if "RSI" in selected_indicators: rows += 1
+            if "MACD" in selected_indicators: rows += 1
+            if "ADX" in selected_indicators: rows += 1
+            
+            row_heights = [0.5] + [0.15] * (rows - 1)
+            
+            fig_multi = make_subplots(
+                rows=rows, cols=1, 
+                shared_xaxes=True, 
+                vertical_spacing=0.05,
+                row_heights=row_heights
+            )
+
+            # Main Price Chart
+            fig_multi.add_trace(go.Candlestick(
+                x=data.index, open=data['Open'], high=data['High'], 
+                low=data['Low'], close=data['Close'], name="Price"
+            ), row=1, col=1)
+
+            if "EMAs (20, 50, 100)" in selected_indicators:
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_1'], line=dict(color='orange', width=1.5), name="EMA 20"), row=1, col=1)
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_2'], line=dict(color='blue', width=1.5), name="EMA 50"), row=1, col=1)
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_100'], line=dict(color='purple', width=1.5), name="EMA 100"), row=1, col=1)
+
+            if "Bollinger Bands" in selected_indicators:
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['BB_Upper'], line=dict(color='rgba(173, 216, 230, 0.4)', width=1), name="BB Upper"), row=1, col=1)
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['BB_Lower'], line=dict(color='rgba(173, 216, 230, 0.4)', width=1), fill='tonexty', name="BB Lower"), row=1, col=1)
+
+            if "Support/Resistance" in selected_indicators:
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['Resistance'], line=dict(color='red', width=1, dash='dash'), name="20D Res"), row=1, col=1)
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['Support'], line=dict(color='green', width=1, dash='dash'), name="20D Sup"), row=1, col=1)
+
+            current_row = 2
+            if "RSI" in selected_indicators:
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='magenta', width=1.5), name="RSI"), row=current_row, col=1)
+                fig_multi.add_hline(y=70, line_dash="dash", line_color="red", row=current_row, col=1)
+                fig_multi.add_hline(y=30, line_dash="dash", line_color="green", row=current_row, col=1)
+                fig_multi.update_yaxes(title_text="RSI", row=current_row, col=1)
+                current_row += 1
+
+            if "MACD" in selected_indicators:
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['MACD'], line=dict(color='cyan', width=1), name="MACD"), row=current_row, col=1)
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['Signal_Line'], line=dict(color='orange', width=1), name="Signal"), row=current_row, col=1)
+                hist_colors = ['green' if x >= 0 else 'red' for x in data['MACD_Hist']]
+                fig_multi.add_trace(go.Bar(x=data.index, y=data['MACD_Hist'], marker_color=hist_colors, name="Histogram"), row=current_row, col=1)
+                fig_multi.update_yaxes(title_text="MACD", row=current_row, col=1)
+                current_row += 1
+
+            if "ADX" in selected_indicators:
+                fig_multi.add_trace(go.Scatter(x=data.index, y=data['ADX'], line=dict(color='yellow', width=1.5), name="ADX"), row=current_row, col=1)
+                fig_multi.add_hline(y=25, line_dash="dash", line_color="white", row=current_row, col=1)
+                fig_multi.update_yaxes(title_text="ADX", row=current_row, col=1)
+                current_row += 1
+
+            fig_multi.update_layout(
+                height=400 + (rows * 150),
+                template="plotly_dark",
+                xaxis_rangeslider_visible=False,
+                margin=dict(l=10, r=10, t=40, b=10),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_multi, use_container_width=True)
+
+            st.info("""
+            **Pro Tip:** Use the legend to toggle specific lines off if the chart feels too busy. Double-click an item in the legend to isolate it.
+            """)
 
         with tab3:
             st.subheader("🚀 Recommended Stocks (S&P 500)")

@@ -179,6 +179,26 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
         *   Refactored the data engine to run full technical analysis on every S&P 500 candidate to generate these real-time entry scores.
     *   **Educational Content Expansion:** Integrated new interactive expanders explaining the logic of the **Scoring System** and the strategic importance of **EMA 20, 50, and 100** as institutional buy targets.
 
+### **Iteration 13: Exit Strategy & Interactive Multi-Chart (Current)**
+
+* **Prompt:** Add "Exit Rules" to the Technicals tab and move/combine charts at the bottom with multiple selection toggles.
+* **Updates:**
+    * **Trading Exit Rules Logic:** 
+        * Developed a 5-point **Exit Scoring System** focusing on:
+            1. **Trend Break:** Price closing below EMA 20.
+            2. **Momentum Loss:** MACD Bearish Crossover.
+            3. **Overbought Reversal:** RSI > 70.
+            4. **Volatility Extension:** Price hitting/exceeding the Upper Bollinger Band.
+            5. **Structural Resistance:** Price within 2% of the 20D Resistance level.
+        * Integrated a **Visual Status Dashboard** for exits with color-coded alerts (SELL/REDUCE, CAUTION, HOLD).
+    * **Interactive Analysis Redesign:**
+        * **Unified Technical Chart:** Migrated from multiple individual charts to a single, high-fidelity **Interactive Multi-Indicator Dashboard** using `make_subplots`.
+        * **Dynamic Toggles:** Implemented a `multiselect` UI that allows users to overlay/view specific indicators:
+            * **Overlays:** EMAs (20, 50, 100), Bollinger Bands, Support/Resistance.
+            * **Oscillators:** RSI, MACD, ADX.
+        * **Responsive Layout:** Engineered the chart to dynamically scale its height and subplots based on the number of selected indicators.
+        * **Strategy Integration:** Added interactive strategy expanders for the Exit Rules to ensure consistent user education.
+
 
 
 

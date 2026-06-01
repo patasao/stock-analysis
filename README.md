@@ -12,13 +12,16 @@ A professional-grade financial analysis web application built with **Streamlit**
     *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence) with **integrated strategy guides** and **Sentiment KPIs**.
     *   **Volatility:** ATR-based entry limits.
     *   **Structure:** 20-Day Support and Resistance discovery.
-*   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`.
-*   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, and EMA targets.
+*   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`. Includes a **Unified Multi-Indicator Chart** with interactive toggles for EMAs, Bollinger Bands, Support/Resistance, RSI, MACD, and ADX.
+*   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, Exit Rules, and EMA targets.
 *   **Performance Optimized:** Integrated `@st.cache_data` for data fetching and responsive UI.
 *   **Trading Entry Rules (Composite Strategy):** A sophisticated rule-based engine that evaluates stock setups using a 12-point scoring system (Core & Supporting conditions). Features include:
     *   **Automated Scoring:** Real-time calculation of entry strength (A+, A, B, C, or Avoid).
     *   **Position Sizing:** Integrated guidance based on setup quality.
     *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
+*   **Trading Exit Rules:** A systematic framework to protect capital and lock in profits. Features:
+    *   **Multi-Factor Exit Scoring:** Evaluates Trend Breaks (EMA 20), MACD Bearish Crossovers, RSI Overbought Reversals, and Price vs. Resistance/Bollinger Bands.
+    *   **Visual Action Alerts:** Real-time status (SELL/REDUCE, CAUTION, HOLD) with recommended actions.
 *   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes:
     *   **Interactive Slicers:** Real-time filters for **Volume Ratio**, **RSI**, and **10D Drawdown %**.
     *   **Core Strategy Defaults:** Pre-configured high-probability criteria (Vol >= 1.6x, RSI 42-58, 10D Drawdown >= 8%).
