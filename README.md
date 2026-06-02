@@ -22,13 +22,6 @@ A professional-grade financial analysis web application built with **Streamlit**
 *   **Trading Exit Rules:** A systematic framework to protect capital and lock in profits. Features:
     *   **Multi-Factor Exit Scoring:** Evaluates Trend Breaks (EMA 20), MACD Bearish Crossovers, RSI Overbought Reversals, and Price vs. Resistance/Bollinger Bands.
     *   **Visual Action Alerts:** Real-time status (SELL/REDUCE, CAUTION, HOLD) with recommended actions.
-*   **Recommend Stocks:** An automated scanner that identifies top-performing stocks from the **S&P 500** with **industry/sector filtering**. Includes:
-    *   **Interactive Slicers:** Real-time filters for **Volume Ratio**, **RSI**, and **10D Drawdown %**.
-    *   **Core Strategy Defaults:** Pre-configured high-probability criteria (Vol >= 1.6x, RSI 42-58, 10D Drawdown >= 8%).
-    *   **Opportunity Gallery:** Visual card-based layout featuring **real-time Trading Entry Scores** for every stock.
-    *   **Performance Matrix:** Simultaneous display of **5D, 1M, and 1Y** returns on every card.
-    *   **Interactive Sorting:** Rank performers by performance timeframes (5D, 1M, 1Y).
-    *   **Strategic Buy Targets:** Integrated **EMA 20, 50, and 100** targets with **dynamic visual cues** (✅ for active dips).
 
 ## 🛠️ Local Setup
 
@@ -65,10 +58,9 @@ The core libraries used in this project are:
 *   `lxml` - For scraping Wikipedia tables
 
 ## 📊 Strategy Logic: Composite Entry System
-The dashboard utilizes a multi-factor model to rank stock opportunities, organized into three tabs:
+The dashboard utilizes a multi-factor model to rank stock opportunities, organized into two tabs:
 1.  **Overview:** Real-time metrics and price action chart.
 2.  **Technicals:** Detailed RSI, MACD, and **Trading Entry Scoring System**.
-3.  **Recommend Stocks:** Automated high-conviction momentum scanner.
 
 ### Scoring Criteria
 *   **Core Conditions (5):** Focused on drawdown (>= 8% from 10D high), EMA20 alignment, RSI stability (42-58), volume expansion (>= 1.6x), and MACD crossovers.
