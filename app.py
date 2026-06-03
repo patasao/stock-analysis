@@ -146,6 +146,7 @@ if symbol:
         
         # Value Extraction (Latest)
         curr_price = float(data['Close'].iloc[-1])
+        open_price = float(data['Open'].iloc[-1])
         prev_close = float(data['Close'].iloc[-2])
         price_change = curr_price - prev_close
         price_change_pct = (price_change / prev_close) * 100
@@ -234,8 +235,8 @@ if symbol:
 
             # Entry Targets Row
             t_col1, t_col2 = st.columns(2)
-            limit_buy_1 = curr_price * (1 + (avg_dd / 100))
-            t_col1.metric("Limit Buy I", f"${limit_buy_1:,.2f}", help="Current Price * (1 + Avg Intraday DD%)")
+            limit_buy_1 = open_price * (1 + (avg_dd / 100))
+            t_col1.metric("Limit Buy I", f"${limit_buy_1:,.2f}", help="Today's Open * (1 + Avg Intraday DD%)")
             t_col2.metric("Limit Buy II", f"${limit_buy_1 * 0.97:,.2f}", help="Limit Buy I * 0.97 (3% Safety Buffer)")
 
             st.write("---")

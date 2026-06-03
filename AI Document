@@ -35,7 +35,7 @@ This proprietary module provides a custom specialized entry strategy based on in
 
 | Indicator | Formula Logic | Strategic Intent |
 | --- | --- | --- |
-| **Limit Buy I** | $Current Price \times (1 + Avg Intraday Drawdown\%)$ | Dynamic entry based on 20-day average price weakness relative to open. |
+| **Limit Buy I** | $Today's Open \times (1 + Avg Intraday Drawdown\%)$ | Dynamic entry based on 20-day average price weakness relative to open. |
 | **Limit Buy II** | $Limit Buy I \times 0.97$ | 3% conservative safety buffer below primary target. |
 
 ### Cost Averaging Simulator
