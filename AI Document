@@ -135,7 +135,17 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
 * **Updates:**
     * **Vertical UI Restructuring:** Transitioned the "Entry Scoring" and "Exit Scoring" sections from a side-by-side (2-column) layout to a **Vertical Stack**.
     * **Enhanced Readability:** Positioned the detailed technical condition checklists directly beneath the high-impact status cards, improving the visual flow for mobile and desktop users.
-    * **Design Consistency:** Standardized the spacing and alignment between scoring headers, status cards, and detailed rule breakdowns.
+    *   **Design Consistency:** Standardized the spacing and alignment between scoring headers, status cards, and detailed rule breakdowns.
+
+    ### **Iteration 9: Intraday Volatility Refinement (Current)**
+
+    * **Prompt:** Update drawdown/drawup to reflect average intraday metrics (Open to Low/High) in percentage.
+    * **Updates:**
+    * **Formula Correction:** Redefined Intraday Drawdown/Drawup as the percentage difference from the daily **Open** to the daily **Low/High**, rather than closing price relative to 20-day extremes.
+    * **New Metrics:** Integrated **Avg Intraday DD** and **Avg Intraday DU** (20-day rolling averages) into the Technicals dashboard.
+    * **Strategic Entry Targets:** Re-implemented **Limit Buy I** (Current Price adjusted by Avg Intraday DD) and **Limit Buy II** (3% buffer below Limit I) to provide dynamic, volatility-adjusted entry signals.
+    * **UI Enhancement:** Added a dedicated "Entry Targets" row in the Technicals tab with transparent tooltips for formula logic.
+
 
 
 

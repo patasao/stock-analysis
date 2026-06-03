@@ -115,9 +115,11 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     # 10-Day High (for Drawdown)
     df['High_10d'] = df['High'].rolling(window=10, min_periods=1).max()
     
-    # Intraday Drawdown (20-day average)
-    df['Intraday_Drawdown_Pct'] = (df['Low'] - df['Open']) / df['Open']
+    # Intraday Drawdown/Drawup (20-day average)
+    df['Intraday_Drawdown_Pct'] = ((df['Low'] - df['Open']) / df['Open']) * 100
+    df['Intraday_Drawup_Pct'] = ((df['High'] - df['Open']) / df['Open']) * 100
     df['Avg_Drawdown'] = df['Intraday_Drawdown_Pct'].rolling(window=20).mean()
+    df['Avg_Drawup'] = df['Intraday_Drawup_Pct'].rolling(window=20).mean()
     
     return df
 
@@ -219,11 +221,22 @@ if symbol:
             e_col3.metric("EMA 100", f"${ema_100_val:,.2f}", help="Long-term value support")
 
             # 20-Day Drawdown/Drawup metrics
-            d_col1, d_col2 = st.columns(2)
+            d_col1, d_col2, d_col3, d_col4 = st.columns(4)
             dd_20d = float(data['Drawdown_20d'].iloc[-1])
             du_20d = float(data['Drawup_20d'].iloc[-1])
+            avg_dd = float(data['Avg_Drawdown'].iloc[-1])
+            avg_du = float(data['Avg_Drawup'].iloc[-1])
+            
             d_col1.metric("20D Drawdown", f"{dd_20d:.2f}%", help="Current decline from 20-day high")
             d_col2.metric("20D Drawup", f"{du_20d:.2f}%", help="Current rise from 20-day low")
+            d_col3.metric("Avg Intraday DD", f"{avg_dd:.2f}%", help="20-day average of (Low - Open) / Open")
+            d_col4.metric("Avg Intraday DU", f"{avg_du:.2f}%", help="20-day average of (High - Open) / Open")
+
+            # Entry Targets Row
+            t_col1, t_col2 = st.columns(2)
+            limit_buy_1 = curr_price * (1 + (avg_dd / 100))
+            t_col1.metric("Limit Buy I", f"${limit_buy_1:,.2f}", help="Current Price * (1 + Avg Intraday DD%)")
+            t_col2.metric("Limit Buy II", f"${limit_buy_1 * 0.97:,.2f}", help="Limit Buy I * 0.97 (3% Safety Buffer)")
 
             st.write("---")
             buy_col, sell_col = st.columns(2)

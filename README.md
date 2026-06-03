@@ -16,6 +16,8 @@ A professional-grade financial analysis web application built with **Streamlit**
 *   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, Exit Rules, and EMA targets.
 *   **Performance Optimized:** Integrated `@st.cache_data` for data fetching and responsive UI.
 *   **Trading Entry Rules (Composite Strategy):** A sophisticated rule-based engine that evaluates stock setups using a 12-point scoring system (Core & Supporting conditions). Features include:
+    *   **Intraday Volatility Engine:** New calculations for **Avg Intraday Drawdown** and **Drawup** (Open-to-Low/High) for precise intraday entry planning.
+    *   **Dynamic Entry Targets:** Automated **Limit Buy I** and **Limit Buy II** targets based on 20-day historical intraday weakness.
     *   **Automated Scoring:** Real-time calculation of entry strength (A+, A, B, C, or Avoid).
     *   **Position Sizing:** Integrated guidance based on setup quality.
     *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
