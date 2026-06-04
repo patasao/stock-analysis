@@ -146,6 +146,17 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
     * **Strategic Entry Targets:** Re-implemented **Limit Buy I** (Current Price adjusted by Avg Intraday DD) and **Limit Buy II** (3% buffer below Limit I) to provide dynamic, volatility-adjusted entry signals.
     * **UI Enhancement:** Added a dedicated "Entry Targets" row in the Technicals tab with transparent tooltips for formula logic.
 
+    ### **Iteration 10: Multi-Stock Analysis & Architecture Refactoring (Current)**
+
+    * **Prompt:** Add a multi-stock analysis tab and remove Limit Buy metrics from the Technicals tab.
+    * **Updates:**
+    * **Architectural Refactoring:** Extracted all technical calculations, scoring logic, and trend/sentiment analysis into a reusable `get_analysis()` function. This enables consistent data processing across both single-stock and batch-stock views.
+    * **New Feature: Multi-Stock Analysis Tab:**
+        * Developed a dedicated tab for batch processing multiple tickers via comma-separated text input.
+        * Implemented a unified technical comparison table displaying Price, S/R levels, EMAs, RSI, Trend, Sentiment, Intraday Volatility, and Buy/Sell scores for all entered stocks.
+        * Integrated specialized DataFrame styling for high-speed technical screening.
+    * **UI Cleanup:** Removed the "Limit Buy I" and "Limit Buy II" KPI cards from the Technicals tab to streamline the interface, while retaining the underlying intraday volatility metrics (Avg DD/DU).
+
 
 
 

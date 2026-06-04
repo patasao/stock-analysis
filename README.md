@@ -13,11 +13,14 @@ A professional-grade financial analysis web application built with **Streamlit**
     *   **Volatility:** ATR-based entry limits.
     *   **Structure:** 20-Day Support and Resistance discovery.
 *   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`. Includes a **Unified Multi-Indicator Chart** with interactive toggles for EMAs, Bollinger Bands, Support/Resistance, RSI, MACD, and ADX.
+*   **Multi-Stock Analysis:** A new dedicated tab for high-speed technical comparison.
+    *   **Batch Analysis:** Input multiple tickers (comma-separated) to generate a unified comparison table.
+    *   **Standardized Metrics:** Compare Price, S/R levels, EMAs, RSI, Trend, Sentiment, and Intraday Volatility across your entire watchlist.
+    *   **Unified Scoring:** View Buy/Sell scores for multiple stocks in a single view for efficient decision-making.
 *   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, Exit Rules, and EMA targets.
 *   **Performance Optimized:** Integrated `@st.cache_data` for data fetching and responsive UI.
 *   **Trading Entry Rules (Composite Strategy):** A sophisticated rule-based engine that evaluates stock setups using a 12-point scoring system (Core & Supporting conditions). Features include:
     *   **Intraday Volatility Engine:** New calculations for **Avg Intraday Drawdown** and **Drawup** (Open-to-Low/High) for precise intraday entry planning.
-    *   **Dynamic Entry Targets:** Automated **Limit Buy I** and **Limit Buy II** targets based on 20-day historical intraday weakness.
     *   **Automated Scoring:** Real-time calculation of entry strength (A+, A, B, C, or Avoid).
     *   **Position Sizing:** Integrated guidance based on setup quality.
     *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
@@ -60,9 +63,10 @@ The core libraries used in this project are:
 *   `lxml` - For scraping Wikipedia tables
 
 ## 📊 Strategy Logic: Composite Entry System
-The dashboard utilizes a multi-factor model to rank stock opportunities, organized into two tabs:
+The dashboard utilizes a multi-factor model to rank stock opportunities, organized into three tabs:
 1.  **Overview:** Real-time metrics and price action chart.
 2.  **Technicals:** Detailed RSI, MACD, and **Trading Entry Scoring System**.
+3.  **Multi-Stock Analysis:** Batch comparison of technical metrics and scores for multiple tickers.
 
 ### Scoring Criteria
 *   **Core Conditions (5):** Focused on drawdown (>= 8% from 10D high), EMA20 alignment, RSI stability (42-58), volume expansion (>= 1.6x), and MACD crossovers.

@@ -44,7 +44,6 @@ def fetch_stock_data(symbol, period="1y", interval="1d"):
             
         return data
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
         return None
 
 # --- Technical Indicator Calculations ---
@@ -123,6 +122,161 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     
     return df
 
+def get_analysis(symbol, period, interval, ema_short, ema_long):
+    data = fetch_stock_data(symbol, period, interval)
+    if data is None or len(data) < 2:
+        return None
+    
+    data = calculate_indicators(data, ema_short, ema_long)
+    
+    # Value Extraction (Latest)
+    curr_price = float(data['Close'].iloc[-1])
+    open_price = float(data['Open'].iloc[-1])
+    prev_close = float(data['Close'].iloc[-2])
+    price_change = curr_price - prev_close
+    price_change_pct = (price_change / prev_close) * 100
+    
+    ema_short_val = float(data['EMA_1'].iloc[-1])
+    ema_long_val = float(data['EMA_2'].iloc[-1])
+    ema_100_val = float(data['EMA_100'].iloc[-1])
+    atr_val = float(data['ATR'].iloc[-1])
+    rsi_val = float(data['RSI'].iloc[-1])
+    res_val = float(data['Resistance'].iloc[-1])
+    sup_val = float(data['Support'].iloc[-1])
+    
+    macd_val = float(data['MACD'].iloc[-1])
+    signal_val = float(data['Signal_Line'].iloc[-1])
+    
+    # Trend & Sentiment
+    trend = "Uptrend 📈" if ema_short_val > ema_long_val else "Downtrend 📉"
+    trend_detail = "Bullish Alignment" if curr_price > ema_short_val > ema_long_val else "Bearish Alignment" if curr_price < ema_short_val < ema_long_val else "Neutral/Mixed"
+    
+    is_bullish = macd_val > signal_val and rsi_val > 50
+    sentiment = "Bullish 🐂" if is_bullish else "Bearish 🐻"
+    sentiment_detail = "MACD & RSI Positive" if is_bullish else "Momentum/RSI Weak"
+    
+    # Drawdown/Drawup
+    dd_20d = float(data['Drawdown_20d'].iloc[-1])
+    du_20d = float(data['Drawup_20d'].iloc[-1])
+    avg_dd = float(data['Avg_Drawdown'].iloc[-1])
+    avg_du = float(data['Avg_Drawup'].iloc[-1])
+    
+    # Scoring System Logic
+    high_10d = data['High_10d'].iloc[-1]
+    drawdown_10d = (curr_price - high_10d) / high_10d
+    c1 = drawdown_10d <= -0.08
+    ema20_dist = (curr_price - ema_short_val) / ema_short_val
+    c2 = abs(ema20_dist) <= 0.06
+    c3 = 42 <= rsi_val <= 58
+    latest_vol = data['Volume'].iloc[-1]
+    avg_vol = data['Volume'].rolling(20).mean().iloc[-1]
+    vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0
+    c4 = vol_ratio >= 1.6
+    c5 = macd_val > signal_val
+    core_score = sum([c1, c2, c3, c4, c5])
+    
+    s1 = curr_price > ema_long_val
+    s2 = macd_val > signal_val
+    high_52w = data['High_52w'].iloc[-1]
+    s3 = (0.78 * high_52w) <= curr_price <= (0.94 * high_52w)
+    s4 = curr_price > ema_100_val
+    adx_val = data['ADX'].iloc[-1]
+    s5 = adx_val > 20
+    bb_mid = data['BB_Mid'].iloc[-1]
+    s6 = curr_price > bb_mid
+    stoch_rsi = data['Stoch_RSI'].iloc[-1]
+    s7 = stoch_rsi < 75
+    supp_score = sum([s1, s2, s3, s4, s5, s6, s7])
+    
+    risk_fail_rsi = rsi_val > 68
+    risk_fail_ema20 = ema20_dist > 0.08
+    
+    entry_level = "Avoid"
+    pos_size = "0%"
+    color = "red"
+    if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2):
+        entry_level = "Avoid"
+        pos_size = "No Entry (Risk/Core Failure)"
+        color = "red"
+    elif core_score >= 4 and supp_score >= 3:
+        entry_level = "A+"
+        pos_size = "Full size (100%)"
+        color = "green"
+    elif core_score >= 4 and supp_score >= 2:
+        entry_level = "A"
+        pos_size = "70-80%"
+        color = "lightgreen"
+    elif core_score >= 4:
+        entry_level = "B"
+        pos_size = "50-60%"
+        color = "orange"
+    elif core_score == 3:
+        entry_level = "C"
+        pos_size = "30-40%"
+        color = "yellow"
+
+    # Exit Logic
+    ex1 = curr_price < ema_short_val
+    ex2 = macd_val < signal_val
+    ex3 = rsi_val > 70
+    bb_upper = data['BB_Upper'].iloc[-1]
+    ex4 = curr_price >= bb_upper
+    ex5 = curr_price >= (res_val * 0.98)
+    exit_score = sum([ex1, ex2, ex3, ex4, ex5])
+    
+    exit_level = "Hold"
+    exit_color = "gray"
+    exit_action = "Maintain Position"
+    if exit_score >= 3 or ex1:
+        exit_level = "SELL / REDUCE"
+        exit_color = "red"
+        exit_action = "Exit or Trim 50-100%"
+    elif exit_score >= 1:
+        exit_level = "CAUTION"
+        exit_color = "orange"
+        exit_action = "Tighten Stop Loss"
+        
+    return {
+        "df": data,
+        "curr_price": curr_price,
+        "price_change_pct": price_change_pct,
+        "ema_short_val": ema_short_val,
+        "ema_long_val": ema_long_val,
+        "ema_100_val": ema_100_val,
+        "rsi_val": rsi_val,
+        "res_val": res_val,
+        "sup_val": sup_val,
+        "trend": trend,
+        "trend_detail": trend_detail,
+        "sentiment": sentiment,
+        "sentiment_detail": sentiment_detail,
+        "dd_20d": dd_20d,
+        "du_20d": du_20d,
+        "avg_dd": avg_dd,
+        "avg_du": avg_du,
+        "entry_level": entry_level,
+        "pos_size": pos_size,
+        "color": color,
+        "core_score": core_score,
+        "supp_score": supp_score,
+        "risk_fail_rsi": risk_fail_rsi,
+        "risk_fail_ema20": risk_fail_ema20,
+        "exit_level": exit_level,
+        "exit_color": exit_color,
+        "exit_action": exit_action,
+        "exit_score": exit_score,
+        "ex1": ex1, "ex2": ex2, "ex3": ex3, "ex4": ex4, "ex5": ex5,
+        "drawdown_10d": drawdown_10d,
+        "ema20_dist": ema20_dist,
+        "vol_ratio": vol_ratio,
+        "adx_val": adx_val,
+        "stoch_rsi": stoch_rsi,
+        "c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5,
+        "s1": s1, "s2": s2, "s3": s3, "s4": s4, "s5": s5, "s6": s6, "s7": s7,
+        "macd_val": macd_val,
+        "signal_val": signal_val
+    }
+
 # --- Sidebar ---
 st.sidebar.title("🛠️ Configuration")
 symbol = st.sidebar.text_input("Stock Symbol", value="AAPL").upper()
@@ -136,39 +290,21 @@ ema_long = st.sidebar.slider("Long EMA Span", 20, 200, 50)
 # --- Main Page Execution ---
 st.title("📈 Stock Insight Dashboard")
 
+tab1, tab2, tab3 = st.tabs(["📊 Overview", "🔍 Technicals", "📋 Multi-Stock Analysis"])
 
-if symbol:
-    with st.spinner(f"Loading data for {symbol}..."):
-        data = fetch_stock_data(symbol, period, interval)
-    
-    if data is not None:
-        data = calculate_indicators(data, ema_short, ema_long)
+with tab1:
+    if symbol:
+        with st.spinner(f"Loading data for {symbol}..."):
+            analysis = get_analysis(symbol, period, interval, ema_short, ema_long)
         
-        # Value Extraction (Latest)
-        curr_price = float(data['Close'].iloc[-1])
-        open_price = float(data['Open'].iloc[-1])
-        prev_close = float(data['Close'].iloc[-2])
-        price_change = curr_price - prev_close
-        price_change_pct = (price_change / prev_close) * 100
-        
-        ema_short_val = float(data['EMA_1'].iloc[-1])
-        ema_long_val = float(data['EMA_2'].iloc[-1])
-        ema_100_val = float(data['EMA_100'].iloc[-1])
-        atr_val = float(data['ATR'].iloc[-1])
-        rsi_val = float(data['RSI'].iloc[-1])
-        res_val = float(data['Resistance'].iloc[-1])
-        sup_val = float(data['Support'].iloc[-1])
-        
-        # Tabs
-        tab1, tab2 = st.tabs(["📊 Overview", "🔍 Technicals"])
-        
-        with tab1:
+        if analysis:
+            data = analysis['df']
             # Metrics Row
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Price", f"${curr_price:,.2f}", f"{price_change_pct:+.2f}%")
-            col2.metric(f"EMA {ema_short}", f"${ema_short_val:,.2f}")
-            col3.metric("20D Support", f"${sup_val:,.2f}")
-            col4.metric("20D Resistance", f"${res_val:,.2f}")
+            col1.metric("Price", f"${analysis['curr_price']:,.2f}", f"{analysis['price_change_pct']:+.2f}%")
+            col2.metric(f"EMA {ema_short}", f"${analysis['ema_short_val']:,.2f}")
+            col3.metric("20D Support", f"${analysis['sup_val']:,.2f}")
+            col4.metric("20D Resistance", f"${analysis['res_val']:,.2f}")
             
             # Main Candlestick Chart
             fig = go.Figure()
@@ -188,56 +324,41 @@ if symbol:
                 margin=dict(l=10, r=10, t=40, b=10)
             )
             st.plotly_chart(fig, use_container_width=True)
-            
-        with tab2:
+        else:
+            st.error(f"Ticker '{symbol}' not found or data unavailable.")
+
+with tab2:
+    if symbol:
+        analysis = get_analysis(symbol, period, interval, ema_short, ema_long)
+        if analysis:
+            data = analysis['df']
             st.subheader("Advanced Technical Indicators")
             
             # KPI Cards for Technicals
             t_col1, t_col2, t_col3 = st.columns(3)
             
             # RSI KPI
-            rsi_val = float(data['RSI'].iloc[-1])
-            rsi_status = "Overbought ⚠️" if rsi_val > 70 else "Oversold ⚠️" if rsi_val < 30 else "Neutral"
-            t_col1.metric("RSI (14)", f"{rsi_val:.2f}", rsi_status)
+            rsi_status = "Overbought ⚠️" if analysis['rsi_val'] > 70 else "Oversold ⚠️" if analysis['rsi_val'] < 30 else "Neutral"
+            t_col1.metric("RSI (14)", f"{analysis['rsi_val']:.2f}", rsi_status)
             
             # Trend KPI
-            ema_20 = float(data['EMA_1'].iloc[-1])
-            ema_long_val = float(data['EMA_2'].iloc[-1])
-            trend = "Uptrend 📈" if ema_20 > ema_long_val else "Downtrend 📉"
-            trend_delta = "Bullish Alignment" if curr_price > ema_20 > ema_long_val else "Bearish Alignment" if curr_price < ema_20 < ema_long_val else "Neutral/Mixed"
-            t_col2.metric("Trend (EMA)", trend, trend_delta)
+            t_col2.metric("Trend (EMA)", analysis['trend'], analysis['trend_detail'])
             
             # Bullish/Bearish KPI
-            macd_val = float(data['MACD'].iloc[-1])
-            signal_val = float(data['Signal_Line'].iloc[-1])
-            is_bullish = macd_val > signal_val and rsi_val > 50
-            sentiment = "Bullish 🐂" if is_bullish else "Bearish 🐻"
-            sentiment_detail = "MACD & RSI Positive" if is_bullish else "Momentum/RSI Weak"
-            t_col3.metric("Sentiment", sentiment, sentiment_detail)
+            t_col3.metric("Sentiment", analysis['sentiment'], analysis['sentiment_detail'])
 
             # EMA Targets row
             e_col1, e_col2, e_col3 = st.columns(3)
-            e_col1.metric("EMA 20", f"${ema_short_val:,.2f}", help="Short-term momentum support")
-            e_col2.metric("EMA 50", f"${ema_long_val:,.2f}", help="Medium-term institutional support")
-            e_col3.metric("EMA 100", f"${ema_100_val:,.2f}", help="Long-term value support")
+            e_col1.metric("EMA 20", f"${analysis['ema_short_val']:,.2f}", help="Short-term momentum support")
+            e_col2.metric("EMA 50", f"${analysis['ema_long_val']:,.2f}", help="Medium-term institutional support")
+            e_col3.metric("EMA 100", f"${analysis['ema_100_val']:,.2f}", help="Long-term value support")
 
             # 20-Day Drawdown/Drawup metrics
             d_col1, d_col2, d_col3, d_col4 = st.columns(4)
-            dd_20d = float(data['Drawdown_20d'].iloc[-1])
-            du_20d = float(data['Drawup_20d'].iloc[-1])
-            avg_dd = float(data['Avg_Drawdown'].iloc[-1])
-            avg_du = float(data['Avg_Drawup'].iloc[-1])
-            
-            d_col1.metric("20D Drawdown", f"{dd_20d:.2f}%", help="Current decline from 20-day high")
-            d_col2.metric("20D Drawup", f"{du_20d:.2f}%", help="Current rise from 20-day low")
-            d_col3.metric("Avg Intraday DD", f"{avg_dd:.2f}%", help="20-day average of (Low - Open) / Open")
-            d_col4.metric("Avg Intraday DU", f"{avg_du:.2f}%", help="20-day average of (High - Open) / Open")
-
-            # Entry Targets Row
-            t_col1, t_col2 = st.columns(2)
-            limit_buy_1 = open_price * (1 + (avg_dd / 100))
-            t_col1.metric("Limit Buy I", f"${limit_buy_1:,.2f}", help="Today's Open * (1 + Avg Intraday DD%)")
-            t_col2.metric("Limit Buy II", f"${limit_buy_1 * 0.97:,.2f}", help="Limit Buy I * 0.97 (3% Safety Buffer)")
+            d_col1.metric("20D Drawdown", f"{analysis['dd_20d']:.2f}%", help="Current decline from 20-day high")
+            d_col2.metric("20D Drawup", f"{analysis['du_20d']:.2f}%", help="Current rise from 20-day low")
+            d_col3.metric("Avg Intraday DD", f"{analysis['avg_dd']:.2f}%", help="20-day average of (Low - Open) / Open")
+            d_col4.metric("Avg Intraday DU", f"{analysis['avg_du']:.2f}%", help="20-day average of (High - Open) / Open")
 
             st.write("---")
             buy_col, sell_col = st.columns(2)
@@ -248,195 +369,66 @@ if symbol:
                 with st.expander("ℹ️ How the Scoring System Works"):
                     st.markdown("""
                     **The Goal:** This system combines 12 technical filters to find "high-probability" setups where momentum meets value.
-                    
-                    **1. Core Conditions (The Foundation):**
-                    - **Drawdown:** We look for a >= 8% pullback from recent highs to avoid "buying the top."
-                    - **EMA20 Alignment:** Price should be within ±6% of the EMA20. If it's too far above, it's overextended.
-                    - **RSI (42-58):** This "sweet spot" ensures the stock has momentum but isn't overbought.
-                    - **Volume Ratio (>= 1.6x):** High volume confirms that "big money" (institutions) is entering the position.
-                    
-                    **2. Supporting Conditions (The Conviction):**
-                    - These indicators (EMA50/100, ADX, Bollinger Bands) measure the strength of the underlying trend. The more conditions met, the higher the "Relative Strength."
-                    
-                    **3. Risk Overrides (The Safety):**
-                    - If the **RSI is > 68** or the price is **> 8% above the EMA20**, the system will automatically signal **Avoid**, regardless of other scores. This prevents FOMO (Fear Of Missing Out) buying.
                     """)
-
-                with st.expander("ℹ️ Understanding Entry Price Targets (EMAs)"):
-                    st.markdown("""
-                    **Why use EMAs as Buy Targets?**
-                    Institutions and algorithms often use Moving Averages as support levels to build large positions.
-                    
-                    - **EMA 20 (Fast):** The "Momentum Line." Best for aggressive traders looking for quick bounces in strong uptrends.
-                    - **EMA 50 (Medium):** The "Institutional Line." This is where major funds often defend their positions. It's the most common "buy the dip" level.
-                    - **EMA 100 (Slow):** The "Value Line." Provides a high margin of safety. Buying here often represents a significant correction within a long-term bull market.
-                    """)
-                
-                # Scoring System Logic
-                # Core Conditions
-                high_10d = data['High_10d'].iloc[-1]
-                drawdown_10d = (curr_price - high_10d) / high_10d
-                c1 = drawdown_10d <= -0.08
-                
-                ema20_dist = (curr_price - ema_short_val) / ema_short_val
-                c2 = abs(ema20_dist) <= 0.06
-                
-                c3 = 42 <= rsi_val <= 58
-                
-                latest_vol = data['Volume'].iloc[-1]
-                avg_vol = data['Volume'].rolling(20).mean().iloc[-1]
-                vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0
-                c4 = vol_ratio >= 1.6
-                
-                c5 = macd_val > signal_val
-                
-                core_conditions = [c1, c2, c3, c4, c5]
-                core_score = sum(core_conditions)
-                
-                # Supporting Conditions
-                s1 = curr_price > ema_long_val # EMA50
-                s2 = macd_val > signal_val
-                high_52w = data['High_52w'].iloc[-1]
-                s3 = (0.78 * high_52w) <= curr_price <= (0.94 * high_52w)
-                s4 = curr_price > ema_100_val
-                adx_val = data['ADX'].iloc[-1]
-                s5 = adx_val > 20
-                bb_mid = data['BB_Mid'].iloc[-1]
-                s6 = curr_price > bb_mid
-                stoch_rsi = data['Stoch_RSI'].iloc[-1]
-                s7 = stoch_rsi < 75
-                
-                supporting_conditions = [s1, s2, s3, s4, s5, s6, s7]
-                supp_score = sum(supporting_conditions)
-                
-                # Risk Rules
-                risk_fail_rsi = rsi_val > 68
-                risk_fail_ema20 = ema20_dist > 0.08
-                
-                # Entry Strength
-                entry_level = "Avoid"
-                pos_size = "0%"
-                color = "red"
-                
-                if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2):
-                    entry_level = "Avoid"
-                    pos_size = "No Entry (Risk/Core Failure)"
-                    color = "red"
-                elif core_score >= 4 and supp_score >= 3:
-                    entry_level = "A+"
-                    pos_size = "Full size (100%)"
-                    color = "green"
-                elif core_score >= 4 and supp_score >= 2:
-                    entry_level = "A"
-                    pos_size = "70-80%"
-                    color = "lightgreen"
-                elif core_score >= 4:
-                    entry_level = "B"
-                    pos_size = "50-60%"
-                    color = "orange"
-                elif core_score == 3:
-                    entry_level = "C"
-                    pos_size = "30-40%"
-                    color = "yellow"
 
                 # Display Scoring
                 st.markdown(f"""
-                <div style="background-color: {color}; padding: 20px; border-radius: 10px; text-align: center; color: black;">
-                    <h1 style="margin: 0;">{entry_level}</h1>
-                    <p style="margin: 0; font-weight: bold;">{pos_size}</p>
+                <div style="background-color: {analysis['color']}; padding: 20px; border-radius: 10px; text-align: center; color: black;">
+                    <h1 style="margin: 0;">{analysis['entry_level']}</h1>
+                    <p style="margin: 0; font-weight: bold;">{analysis['pos_size']}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                st.write("") # Add some spacing
-                st.write(f"**Core Conditions:** {core_score}/5")
-                st.write(f"**Supporting Conditions:** {supp_score}/7")
-                if risk_fail_rsi: st.error("⚠️ Risk: RSI too high (> 68)")
-                if risk_fail_ema20: st.error("⚠️ Risk: Too far above EMA20 (> 8%)")
+                st.write("") 
+                st.write(f"**Core Conditions:** {analysis['core_score']}/5")
+                st.write(f"**Supporting Conditions:** {analysis['supp_score']}/7")
+                if analysis['risk_fail_rsi']: st.error("⚠️ Risk: RSI too high (> 68)")
+                if analysis['risk_fail_ema20']: st.error("⚠️ Risk: Too far above EMA20 (> 8%)")
 
                 # Details Expander
                 with st.expander("🔍 View Checklist Details"):
                     c_col1, c_col2 = st.columns(2)
                     with c_col1:
                         st.write("**Core Conditions**")
-                        st.write(f"{'✅' if c1 else '❌'} Drawdown >= 8% ({drawdown_10d:.1%})")
-                        st.write(f"{'✅' if c2 else '❌'} Within ±6% EMA20 ({ema20_dist:.1%})")
-                        st.write(f"{'✅' if c3 else '❌'} RSI 42-58 ({rsi_val:.1f})")
-                        st.write(f"{'✅' if c4 else '❌'} Vol Ratio >= 1.6x ({vol_ratio:.1f}x)")
-                        st.write(f"{'✅' if c5 else '❌'} MACD > Signal")
+                        st.write(f"{'✅' if analysis['c1'] else '❌'} Drawdown >= 8% ({analysis['drawdown_10d']:.1%})")
+                        st.write(f"{'✅' if analysis['c2'] else '❌'} Within ±6% EMA20 ({analysis['ema20_dist']:.1%})")
+                        st.write(f"{'✅' if analysis['c3'] else '❌'} RSI 42-58 ({analysis['rsi_val']:.1f})")
+                        st.write(f"{'✅' if analysis['c4'] else '❌'} Vol Ratio >= 1.6x ({analysis['vol_ratio']:.1f}x)")
+                        st.write(f"{'✅' if analysis['c5'] else '❌'} MACD > Signal")
                     
                     with c_col2:
                         st.write("**Supporting Conditions**")
-                        st.write(f"{'✅' if s1 else '❌'} Above EMA50")
-                        st.write(f"{'✅' if s2 else '❌'} MACD > Signal")
-                        st.write(f"{'✅' if s3 else '❌'} 78%-94% of 52W High")
-                        st.write(f"{'✅' if s4 else '❌'} Above EMA100")
-                        st.write(f"{'✅' if s5 else '❌'} ADX > 20 ({adx_val:.1f})")
-                        st.write(f"{'✅' if s6 else '❌'} Above BB Middle")
-                        st.write(f"{'✅' if s7 else '❌'} Stoch RSI < 75 ({stoch_rsi:.1f})")
+                        st.write(f"{'✅' if analysis['s1'] else '❌'} Above EMA50")
+                        st.write(f"{'✅' if analysis['s2'] else '❌'} MACD > Signal")
+                        st.write(f"{'✅' if analysis['s3'] else '❌'} 78%-94% of 52W High")
+                        st.write(f"{'✅' if analysis['s4'] else '❌'} Above EMA100")
+                        st.write(f"{'✅' if analysis['s5'] else '❌'} ADX > 20 ({analysis['adx_val']:.1f})")
+                        st.write(f"{'✅' if analysis['s6'] else '❌'} Above BB Middle")
+                        st.write(f"{'✅' if analysis['s7'] else '❌'} Stoch RSI < 75 ({analysis['stoch_rsi']:.1f})")
 
             with sell_col:
                 st.subheader("🚩 Selling Score (Exit Rules)")
                 
                 with st.expander("ℹ️ How the Exit Strategy Works"):
                     st.markdown("""
-                    **The Goal:** To protect capital and lock in gains using a systematic approach rather than emotional decision-making.
-                    
-                    **1. Protective Exits (Defense):**
-                    - **Hard Stop (-8% to -10%):** The absolute maximum loss allowed. 
-                    - **Trailing Stop (EMA 20):** If the price closes below the EMA 20, the short-term trend has likely broken.
-                    
-                    **2. Offensive Exits (Profit Taking):**
-                    - **Resistance/Targets:** Selling near the 20D Resistance or at +15-20% gains.
-                    - **Bollinger Band Extension:** Selling when price is outside the Upper BB (overextended).
-                    
-                    **3. Momentum Exits (Trend Change):**
-                    - **MACD Bearish Cross:** When the blue line crosses below the orange line.
-                    - **RSI Reversal:** When RSI drops back below 70 after being overbought.
+                    **The Goal:** To protect capital and lock in gains using a systematic approach.
                     """)
 
-                # Exit Logic
-                # 1. Trailing Stop
-                ex1 = curr_price < ema_short_val
-                # 2. MACD Cross
-                ex2 = macd_val < signal_val
-                # 3. RSI Overbought Reversal
-                ex3 = rsi_val > 70
-                # 4. Bollinger Band Exit
-                bb_upper = data['BB_Upper'].iloc[-1]
-                ex4 = curr_price >= bb_upper
-                # 5. Resistance Exit
-                ex5 = curr_price >= (res_val * 0.98) # Within 2% of resistance
-
-                exit_score = sum([ex1, ex2, ex3, ex4, ex5])
-                
-                exit_level = "Hold"
-                exit_color = "gray"
-                exit_action = "Maintain Position"
-                
-                if exit_score >= 3 or ex1: # EMA 20 break is a strong signal
-                    exit_level = "SELL / REDUCE"
-                    exit_color = "red"
-                    exit_action = "Exit or Trim 50-100%"
-                elif exit_score >= 1:
-                    exit_level = "CAUTION"
-                    exit_color = "orange"
-                    exit_action = "Tighten Stop Loss"
-                
                 # Display Exit Scoring
                 st.markdown(f"""
-                <div style="background-color: {exit_color}; padding: 20px; border-radius: 10px; text-align: center; color: white;">
-                    <h2 style="margin: 0;">{exit_level}</h2>
-                    <p style="margin: 0; font-weight: bold;">{exit_action}</p>
+                <div style="background-color: {analysis['exit_color']}; padding: 20px; border-radius: 10px; text-align: center; color: white;">
+                    <h2 style="margin: 0;">{analysis['exit_level']}</h2>
+                    <p style="margin: 0; font-weight: bold;">{analysis['exit_action']}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                st.write("") # Add some spacing
-                st.write(f"**Exit Signals Triggered:** {exit_score}/5")
-                st.write(f"{'🔴' if ex1 else '⚪'} Price below EMA 20 (Trend Break)")
-                st.write(f"{'🔴' if ex2 else '⚪'} MACD Bearish Crossover")
-                st.write(f"{'🔴' if ex3 else '⚪'} RSI Overbought (>70)")
-                st.write(f"{'🔴' if ex4 else '⚪'} Price at Upper Bollinger Band")
-                st.write(f"{'🔴' if ex5 else '⚪'} Price near 20D Resistance")
+                st.write("") 
+                st.write(f"**Exit Signals Triggered:** {analysis['exit_score']}/5")
+                st.write(f"{'🔴' if analysis['ex1'] else '⚪'} Price below EMA 20 (Trend Break)")
+                st.write(f"{'🔴' if analysis['ex2'] else '⚪'} MACD Bearish Crossover")
+                st.write(f"{'🔴' if analysis['ex3'] else '⚪'} RSI Overbought (>70)")
+                st.write(f"{'🔴' if analysis['ex4'] else '⚪'} Price at Upper Bollinger Band")
+                st.write(f"{'🔴' if analysis['ex5'] else '⚪'} Price near 20D Resistance")
 
             st.write("---")
             st.subheader("📊 Interactive Multi-Indicator Analysis")
@@ -511,14 +503,58 @@ if symbol:
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             st.plotly_chart(fig_multi, use_container_width=True)
+        else:
+            st.error(f"Ticker '{symbol}' not found or data unavailable.")
 
-            st.info("""
-            **Pro Tip:** Use the legend to toggle specific lines off if the chart feels too busy. Double-click an item in the legend to isolate it.
-            """)
-
-
-    else:
-        st.error(f"Ticker '{symbol}' not found or data unavailable.")
+with tab3:
+    st.subheader("Multi-Stock Technical Comparison")
+    multi_input = st.text_input("Enter Ticker Symbols (comma-separated)", value="AAPL, TSLA, MSFT, GOOGL, NVDA, AMD, META")
+    
+    if multi_input:
+        symbols = [s.strip().upper() for s in multi_input.split(",") if s.strip()]
+        
+        if symbols:
+            with st.spinner(f"Analyzing {len(symbols)} stocks..."):
+                results = []
+                for s in symbols:
+                    res = get_analysis(s, period, interval, ema_short, ema_long)
+                    if res:
+                        results.append({
+                            "Symbol": s,
+                            "Price": res['curr_price'],
+                            "20D Support": res['sup_val'],
+                            "20D Resistance": res['res_val'],
+                            "EMA20": res['ema_short_val'],
+                            "EMA50": res['ema_long_val'],
+                            "RSI (14)": res['rsi_val'],
+                            "Trend (EMA)": res['trend'],
+                            "Sentiment": res['sentiment'],
+                            "Avg Intraday DD": res['avg_dd'],
+                            "Avg Intraday DU": res['avg_du'],
+                            "Buying Score": res['entry_level'],
+                            "Selling Score": res['exit_level']
+                        })
+                
+                if results:
+                    df_multi = pd.DataFrame(results)
+                    
+                    # Formatting
+                    st.dataframe(
+                        df_multi.style.format({
+                            "Price": "${:,.2f}",
+                            "20D Support": "${:,.2f}",
+                            "20D Resistance": "${:,.2f}",
+                            "EMA20": "${:,.2f}",
+                            "EMA50": "${:,.2f}",
+                            "RSI (14)": "{:.2f}",
+                            "Avg Intraday DD": "{:.2f}%",
+                            "Avg Intraday DU": "{:.2f}%"
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.warning("No valid data found for the entered tickers.")
 
 # --- Footer ---
 st.write("---")
