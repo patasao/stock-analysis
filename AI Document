@@ -157,9 +157,16 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
         * Integrated specialized DataFrame styling for high-speed technical screening.
     * **UI Cleanup:** Removed the "Limit Buy I" and "Limit Buy II" KPI cards from the Technicals tab to streamline the interface, while retaining the underlying intraday volatility metrics (Avg DD/DU).
 
+    ### **Iteration 11: S&P 500 Scanner & Volatility Extrema (Current)**
 
-
-
+    * **Prompt:** Add rolling extrema for intraday drawdown/drawup, S&P 500 High Growth Scanner tab with filtering capabilities, and KPI cards showing performance, EMAs, and detailed Buying Score checkmarks.
+    * **Updates:**
+        * **Rolling Extrema Indicators**: Integrated `Lowest_Drawdown`, `Highest_Drawdown`, `Lowest_Drawup`, and `Highest_Drawup` calculations based on 20-day rolling window of intraday movements (Open to Low/High).
+        * **Technicals Tab Upgrade**: Added a new row of metric cards in the Technicals tab displaying the rolling 20-day minimum and maximum values for intraday drawdowns and drawups.
+        * **S&P 500 Growth Scan Tab**: Developed a dedicated "High Growth Stocks" discovery tab. It fetches all 500+ tickers from Wikipedia (with robust caching and a high-quality fallback) and pulls 2 years of daily history via a single batch yfinance download.
+        * **Interactive Scanning Filters**: Integrated 5 dropdown selectbox controls mapping to the 5 Core Buying Rules. Toggling these allows filtering stocks that pass specific conditions or showing all stocks, defaulting to "Pass Only".
+        * **Horizon Sorting controls**: Enabled sorting stocks dynamically by 20D, 50D, 100D, or 200D growth rates.
+        * **High Fidelity Grid Cards**: Rendered the Top 20 matching stocks in a clean 2-column layout. Each card acts as a standalone KPI sheet, detailing % growth and EMAs (20, 50, 100, 200) as metrics, displaying a color-coded buying rules score banner, and hosting a collapsible checklist showing exact core rules passing/failing status.
 
 ---
 

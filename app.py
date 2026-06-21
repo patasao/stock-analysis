@@ -54,6 +54,7 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df['EMA_1'] = df['Close'].ewm(span=ema_span_1, adjust=False).mean()
     df['EMA_2'] = df['Close'].ewm(span=ema_span_2, adjust=False).mean()
     df['EMA_100'] = df['Close'].ewm(span=100, adjust=False).mean()
+    df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
     
     # ATR (14-period)
     high_low = df['High'] - df['Low']
@@ -119,6 +120,10 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df['Intraday_Drawup_Pct'] = ((df['High'] - df['Open']) / df['Open']) * 100
     df['Avg_Drawdown'] = df['Intraday_Drawdown_Pct'].rolling(window=20).mean()
     df['Avg_Drawup'] = df['Intraday_Drawup_Pct'].rolling(window=20).mean()
+    df['Lowest_Drawdown'] = df['Intraday_Drawdown_Pct'].rolling(window=20).min()
+    df['Highest_Drawdown'] = df['Intraday_Drawdown_Pct'].rolling(window=20).max()
+    df['Lowest_Drawup'] = df['Intraday_Drawup_Pct'].rolling(window=20).min()
+    df['Highest_Drawup'] = df['Intraday_Drawup_Pct'].rolling(window=20).max()
     
     return df
 
@@ -160,6 +165,10 @@ def get_analysis(symbol, period, interval, ema_short, ema_long):
     du_20d = float(data['Drawup_20d'].iloc[-1])
     avg_dd = float(data['Avg_Drawdown'].iloc[-1])
     avg_du = float(data['Avg_Drawup'].iloc[-1])
+    lowest_dd = float(data['Lowest_Drawdown'].iloc[-1])
+    highest_dd = float(data['Highest_Drawdown'].iloc[-1])
+    lowest_du = float(data['Lowest_Drawup'].iloc[-1])
+    highest_du = float(data['Highest_Drawup'].iloc[-1])
     
     # Scoring System Logic
     high_10d = data['High_10d'].iloc[-1]
@@ -243,6 +252,7 @@ def get_analysis(symbol, period, interval, ema_short, ema_long):
         "ema_short_val": ema_short_val,
         "ema_long_val": ema_long_val,
         "ema_100_val": ema_100_val,
+        "ema_200_val": float(data['EMA_200'].iloc[-1]) if 'EMA_200' in data.columns else 0.0,
         "rsi_val": rsi_val,
         "res_val": res_val,
         "sup_val": sup_val,
@@ -254,6 +264,10 @@ def get_analysis(symbol, period, interval, ema_short, ema_long):
         "du_20d": du_20d,
         "avg_dd": avg_dd,
         "avg_du": avg_du,
+        "lowest_dd": lowest_dd,
+        "highest_dd": highest_dd,
+        "lowest_du": lowest_du,
+        "highest_du": highest_du,
         "entry_level": entry_level,
         "pos_size": pos_size,
         "color": color,
@@ -290,7 +304,7 @@ ema_long = st.sidebar.slider("Long EMA Span", 20, 200, 50)
 # --- Main Page Execution ---
 st.title("📈 Stock Insight Dashboard")
 
-tab1, tab2, tab3 = st.tabs(["📊 Overview", "🔍 Technicals", "📋 Multi-Stock Analysis"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🔍 Technicals", "📋 Multi-Stock Analysis", "🚀 High Growth Stocks"])
 
 with tab1:
     if symbol:
@@ -359,6 +373,13 @@ with tab2:
             d_col2.metric("20D Drawup", f"{analysis['du_20d']:.2f}%", help="Current rise from 20-day low")
             d_col3.metric("Avg Intraday DD", f"{analysis['avg_dd']:.2f}%", help="20-day average of (Low - Open) / Open")
             d_col4.metric("Avg Intraday DU", f"{analysis['avg_du']:.2f}%", help="20-day average of (High - Open) / Open")
+
+            # Intraday Drawdown/Drawup Min/Max metrics
+            dd_col1, dd_col2, dd_col3, dd_col4 = st.columns(4)
+            dd_col1.metric("Lowest Intraday DD", f"{analysis['lowest_dd']:.2f}%", help="Lowest (most negative) intraday drawdown over the last 20 days")
+            dd_col2.metric("Highest Intraday DD", f"{analysis['highest_dd']:.2f}%", help="Highest (closest to zero) intraday drawdown over the last 20 days")
+            dd_col3.metric("Lowest Intraday DU", f"{analysis['lowest_du']:.2f}%", help="Lowest (closest to zero) intraday drawup over the last 20 days")
+            dd_col4.metric("Highest Intraday DU", f"{analysis['highest_du']:.2f}%", help="Highest (most positive) intraday drawup over the last 20 days")
 
             st.write("---")
             buy_col, sell_col = st.columns(2)
@@ -555,6 +576,254 @@ with tab3:
                     )
                 else:
                     st.warning("No valid data found for the entered tickers.")
+
+with tab4:
+    st.subheader("🚀 Top 20 High Growth Stocks from S&P500")
+    
+    # 1. Fetch S&P500 tickers & data
+    @st.cache_data(ttl=86400)
+    def get_sp500_tickers():
+        try:
+            tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+            df = tables[0]
+            tickers = df['Symbol'].tolist()
+            tickers = [t.replace('.', '-') for t in tickers]
+            return tickers
+        except Exception as e:
+            return [
+                "AAPL", "MSFT", "AMZN", "NVDA", "GOOGL", "META", "BRK-B", "LLY", "AVGO", "JPM",
+                "TSLA", "V", "UNH", "XOM", "MA", "HD", "PG", "COST", "JNJ", "ABBV",
+                "BAC", "MRK", "AMD", "ADBE", "CRM", "NFLX", "CVX", "WMT", "TMO", "PEP",
+                "DIS", "KO", "ACN", "INTC", "ORCL", "CSCO", "MCD", "WFC", "XOM", "TXN"
+            ]
+
+    @st.cache_data(ttl=3600)
+    def load_and_analyze_sp500(tickers):
+        data = yf.download(tickers, period="2y", interval="1d", group_by="column")
+        results = []
+        for ticker in tickers:
+            try:
+                # Extract ticker data
+                ticker_df = pd.DataFrame()
+                for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                    if col in data.columns and ticker in data[col].columns:
+                        ticker_df[col] = data[col][ticker]
+                
+                if len(ticker_df) < 200:
+                    continue
+                
+                ticker_df = ticker_df.dropna(subset=['Close'])
+                if len(ticker_df) < 150:
+                    continue
+                
+                df_ind = calculate_indicators(ticker_df)
+                
+                # Calculate growth
+                def get_growth(days):
+                    if len(df_ind) <= days:
+                        return 0.0
+                    c_curr = df_ind['Close'].iloc[-1]
+                    c_prev = df_ind['Close'].iloc[-days-1]
+                    if pd.isna(c_curr) or pd.isna(c_prev) or c_prev == 0:
+                        return 0.0
+                    return float((c_curr - c_prev) / c_prev * 100)
+                
+                g_20 = get_growth(20)
+                g_50 = get_growth(50)
+                g_100 = get_growth(100)
+                g_200 = get_growth(200)
+                
+                curr_p = float(df_ind['Close'].iloc[-1])
+                ema20 = float(df_ind['EMA_1'].iloc[-1])
+                ema50 = float(df_ind['EMA_2'].iloc[-1])
+                ema100 = float(df_ind['EMA_100'].iloc[-1])
+                ema200 = float(df_ind['EMA_200'].iloc[-1])
+                
+                # Core conditions
+                rsi_val = float(df_ind['RSI'].iloc[-1])
+                macd_val = float(df_ind['MACD'].iloc[-1])
+                signal_val = float(df_ind['Signal_Line'].iloc[-1])
+                latest_vol = float(df_ind['Volume'].iloc[-1])
+                avg_vol = float(df_ind['Volume'].rolling(20).mean().iloc[-1])
+                vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0.0
+                
+                high_10d = float(df_ind['High_10d'].iloc[-1])
+                drawdown_10d = (curr_p - high_10d) / high_10d
+                
+                c1 = drawdown_10d <= -0.08
+                ema20_dist = (curr_p - ema20) / ema20
+                c2 = abs(ema20_dist) <= 0.06
+                c3 = 42 <= rsi_val <= 58
+                c4 = vol_ratio >= 1.6
+                c5 = macd_val > signal_val
+                core_score = sum([c1, c2, c3, c4, c5])
+                
+                # Supporting conditions
+                s1 = curr_p > ema50
+                s2 = macd_val > signal_val
+                high_52w = float(df_ind['High_52w'].iloc[-1])
+                s3 = (0.78 * high_52w) <= curr_p <= (0.94 * high_52w)
+                s4 = curr_p > ema100
+                adx_val = float(df_ind['ADX'].iloc[-1])
+                s5 = adx_val > 20
+                bb_mid = float(df_ind['BB_Mid'].iloc[-1])
+                s6 = curr_p > bb_mid
+                stoch_rsi = float(df_ind['Stoch_RSI'].iloc[-1])
+                s7 = stoch_rsi < 75
+                supp_score = sum([s1, s2, s3, s4, s5, s6, s7])
+                
+                risk_fail_rsi = rsi_val > 68
+                risk_fail_ema20 = ema20_dist > 0.08
+                
+                entry_level = "Avoid"
+                pos_size = "0%"
+                color = "red"
+                if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2):
+                    entry_level = "Avoid"
+                    pos_size = "No Entry (Risk/Core Failure)"
+                    color = "#FFCCCC"
+                elif core_score >= 4 and supp_score >= 3:
+                    entry_level = "A+"
+                    pos_size = "Full size (100%)"
+                    color = "#CCFFCC"
+                elif core_score >= 4 and supp_score >= 2:
+                    entry_level = "A"
+                    pos_size = "70-80%"
+                    color = "#E5FFE5"
+                elif core_score >= 4:
+                    entry_level = "B"
+                    pos_size = "50-60%"
+                    color = "#FFE5CC"
+                elif core_score == 3:
+                    entry_level = "C"
+                    pos_size = "30-40%"
+                    color = "#FFFFCC"
+                
+                results.append({
+                    "ticker": ticker,
+                    "curr_price": curr_p,
+                    "growth_20d": g_20,
+                    "growth_50d": g_50,
+                    "growth_100d": g_100,
+                    "growth_200d": g_200,
+                    "ema20": ema20,
+                    "ema50": ema50,
+                    "ema100": ema100,
+                    "ema200": ema200,
+                    "core_score": core_score,
+                    "supp_score": supp_score,
+                    "total_score": core_score + supp_score,
+                    "entry_level": entry_level,
+                    "pos_size": pos_size,
+                    "color": color,
+                    "c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5,
+                    "drawdown_10d": drawdown_10d,
+                    "ema20_dist": ema20_dist,
+                    "rsi_val": rsi_val,
+                    "vol_ratio": vol_ratio,
+                    "macd_val": macd_val,
+                    "signal_val": signal_val
+                })
+            except Exception as e:
+                continue
+        return results
+    
+    tickers = get_sp500_tickers()
+    with st.spinner("Fetching S&P 500 stock data & scanning growth (this can take up to 25s on first run)..."):
+        sp500_data = load_and_analyze_sp500(tickers)
+    
+    if not sp500_data:
+        st.error("No data fetched for S&P 500 stocks.")
+    else:
+        # Filter Slicers
+        st.markdown("### 🔍 Filter by Core Buying Conditions")
+        f_col1, f_col2, f_col3, f_col4, f_col5 = st.columns(5)
+        
+        c1_filter = f_col1.selectbox("Drawdown >= 8% (c1)", ["Pass Only", "All"], index=0, key="f_c1")
+        c2_filter = f_col2.selectbox("Within ±6% EMA20 (c2)", ["Pass Only", "All"], index=0, key="f_c2")
+        c3_filter = f_col3.selectbox("RSI 42-58 (c3)", ["Pass Only", "All"], index=0, key="f_c3")
+        c4_filter = f_col4.selectbox("Vol Ratio >= 1.6x (c4)", ["Pass Only", "All"], index=0, key="f_c4")
+        c5_filter = f_col5.selectbox("MACD > Signal (c5)", ["Pass Only", "All"], index=0, key="f_c5")
+        
+        # Radio button selection for growth
+        st.markdown("### 📈 Select Growth Horizon")
+        growth_horizon = st.radio(
+            "Sort and display by:",
+            options=["20D High Growth", "50D High Growth", "100D High Growth", "200D High Growth"],
+            horizontal=True,
+            key="growth_horiz"
+        )
+        
+        # Apply filter logic
+        filtered_stocks = []
+        for stock in sp500_data:
+            if c1_filter == "Pass Only" and not stock['c1']:
+                continue
+            if c2_filter == "Pass Only" and not stock['c2']:
+                continue
+            if c3_filter == "Pass Only" and not stock['c3']:
+                continue
+            if c4_filter == "Pass Only" and not stock['c4']:
+                continue
+            if c5_filter == "Pass Only" and not stock['c5']:
+                continue
+            filtered_stocks.append(stock)
+            
+        horizon_key_map = {
+            "20D High Growth": "growth_20d",
+            "50D High Growth": "growth_50d",
+            "100D High Growth": "growth_100d",
+            "200D High Growth": "growth_200d"
+        }
+        sort_key = horizon_key_map[growth_horizon]
+        
+        top_stocks = sorted(filtered_stocks, key=lambda x: x[sort_key], reverse=True)[:20]
+        
+        if not top_stocks:
+            st.warning("⚠️ No stocks match the selected core condition filters. Try changing some filters to 'All'.")
+        else:
+            st.markdown(f"Showing **Top {len(top_stocks)}** S&P 500 stocks sorted by chosen growth:")
+            
+            # Display cards in 1-column layout
+            for stock in top_stocks:
+                with st.container(border=True):
+                    h_col1, h_col2 = st.columns([2, 1])
+                    h_col1.markdown(f"### **{stock['ticker']}**")
+                    h_col2.markdown(f"### **${stock['curr_price']:,.2f}**")
+                    
+                    st.write("**% Growth**")
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("20D", f"{stock['growth_20d']:+.1f}%")
+                    m2.metric("50D", f"{stock['growth_50d']:+.1f}%")
+                    m3.metric("100D", f"{stock['growth_100d']:+.1f}%")
+                    m4.metric("200D", f"{stock['growth_200d']:+.1f}%")
+                    
+                    st.write("**EMAs**")
+                    e1, e2, e3, e4 = st.columns(4)
+                    e1.metric("EMA20", f"${stock['ema20']:,.2f}")
+                    e2.metric("EMA50", f"${stock['ema50']:,.2f}")
+                    e3.metric("EMA100", f"${stock['ema100']:,.2f}")
+                    e4.metric("EMA200", f"${stock['ema200']:,.2f}")
+                    
+                    st.write("")
+                    # Score Banner
+                    score_banner_html = f"""
+                    <div style="background-color: {stock['color']}; padding: 12px; border-radius: 8px; text-align: center; color: black; font-weight: bold; margin-bottom: 12px;">
+                        Buying Score: {stock['entry_level']} ({stock['total_score']}/12 Score) | Pos: {stock['pos_size']}
+                    </div>
+                    """
+                    st.markdown(score_banner_html, unsafe_allow_html=True)
+                    
+                    with st.expander("🔍 View Core Conditions Checklist Details"):
+                        det_col1, det_col2 = st.columns(2)
+                        with det_col1:
+                            st.write(f"{'✅' if stock['c1'] else '❌'} Drawdown >= 8% ({stock['drawdown_10d']:.1%})")
+                            st.write(f"{'✅' if stock['c2'] else '❌'} Within ±6% EMA20 ({stock['ema20_dist']:.1%})")
+                            st.write(f"{'✅' if stock['c3'] else '❌'} RSI 42-58 ({stock['rsi_val']:.1f})")
+                        with det_col2:
+                            st.write(f"{'✅' if stock['c4'] else '❌'} Vol Ratio >= 1.6x ({stock['vol_ratio']:.1f}x)")
+                            st.write(f"{'✅' if stock['c5'] else '❌'} MACD > Signal")
+                            st.write(f"Core score: **{stock['core_score']}/5**")
 
 # --- Footer ---
 st.write("---")

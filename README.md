@@ -20,7 +20,9 @@ A professional-grade financial analysis web application built with **Streamlit**
 *   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, Exit Rules, and EMA targets.
 *   **Performance Optimized:** Integrated `@st.cache_data` for data fetching and responsive UI.
 *   **Trading Entry Rules (Composite Strategy):** A sophisticated rule-based engine that evaluates stock setups using a 12-point scoring system (Core & Supporting conditions). Features include:
-    *   **Intraday Volatility Engine:** New calculations for **Avg Intraday Drawdown** and **Drawup** (Open-to-Low/High) for precise intraday entry planning.
+    *   **Intraday Volatility Engine:** New calculations for **Avg Intraday Drawdown/Drawup** and 20-day rolling **Lowest/Highest Intraday Drawdown/Drawup** (Open-to-Low/High) for precise intraday entry planning.
+    *   **High Growth Stocks Scanner:** A dedicated discovery scanner tab that fetches all S&P 500 tickers, filters them through 5 customizable Core Buying Rule selectbox slicers, and displays the Top 20 stocks sorted by growth.
+    *   **High Fidelity KPI Cards:** Rich visualization of the Top 20 stocks containing 20D, 50D, 100D, and 200D growth metrics, EMAs (20, 50, 100, 200), Buying Score levels, and collapsible checklists of condition details.
     *   **Automated Scoring:** Real-time calculation of entry strength (A+, A, B, C, or Avoid).
     *   **Position Sizing:** Integrated guidance based on setup quality.
     *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
@@ -65,8 +67,9 @@ The core libraries used in this project are:
 ## 📊 Strategy Logic: Composite Entry System
 The dashboard utilizes a multi-factor model to rank stock opportunities, organized into three tabs:
 1.  **Overview:** Real-time metrics and price action chart.
-2.  **Technicals:** Detailed RSI, MACD, and **Trading Entry Scoring System**.
+2.  **Technicals:** Detailed RSI, MACD, Trading Entry Scoring System, and rolling 20D intraday drawdown/drawup extrema.
 3.  **Multi-Stock Analysis:** Batch comparison of technical metrics and scores for multiple tickers.
+4.  **High Growth Stocks:** Real-time scanner mapping S&P 500 growth over multiple horizons with customizable buying rules filters.
 
 ### Scoring Criteria
 *   **Core Conditions (5):** Focused on drawdown (>= 8% from 10D high), EMA20 alignment, RSI stability (42-58), volume expansion (>= 1.6x), and MACD crossovers.
