@@ -291,6 +291,117 @@ def get_analysis(symbol, period, interval, ema_short, ema_long):
         "signal_val": signal_val
     }
 
+def render_volatility_scale(lowest_dd, avg_dd, avg_du, highest_du):
+    """Render the intraday drawdown/drawup scale bar using native Streamlit + Plotly."""
+    import math
+
+    def is_valid(val):
+        try:
+            return val is not None and not math.isnan(float(val)) and not math.isinf(float(val))
+        except (TypeError, ValueError):
+            return False
+
+    if not all(is_valid(v) for v in [lowest_dd, avg_dd, avg_du, highest_du]):
+        st.warning("Volatility scale data unavailable.")
+        return
+
+    lowest_dd  = float(lowest_dd)
+    avg_dd     = float(avg_dd)
+    avg_du     = float(avg_du)
+    highest_du = float(highest_du)
+
+    # --- Plotly horizontal bar chart ---
+    # Two segments: [lowest_dd → 0] in red, [0 → highest_du] in green
+    # We draw them as stacked horizontal bars on a single invisible y-axis row.
+
+    fig = go.Figure()
+
+    # Red segment (drawdown zone): width = abs(lowest_dd), starts at lowest_dd
+    fig.add_trace(go.Bar(
+        x=[abs(lowest_dd)],
+        y=[""],
+        base=[lowest_dd],
+        orientation="h",
+        marker=dict(
+            color="rgba(204,34,34,0.85)",
+            line=dict(width=0),
+        ),
+        showlegend=False,
+        hoverinfo="skip",
+    ))
+
+    # Green segment (drawup zone): width = highest_du, starts at 0
+    fig.add_trace(go.Bar(
+        x=[highest_du],
+        y=[""],
+        base=[0],
+        orientation="h",
+        marker=dict(
+            color="rgba(31,173,74,0.85)",
+            line=dict(width=0),
+        ),
+        showlegend=False,
+        hoverinfo="skip",
+    ))
+
+    # Marker lines for the 5 key points
+    markers = [
+        (lowest_dd,  "#ff3333", "▼"),
+        (avg_dd,     "#ff9999", "▼"),
+        (0.0,        "#ffffff", "▼"),
+        (avg_du,     "#99ffb0", "▼"),
+        (highest_du, "#1fad4a", "▼"),
+    ]
+    for x_val, color, _ in markers:
+        fig.add_vline(
+            x=x_val,
+            line=dict(color=color, width=2, dash="dot"),
+        )
+
+    # Annotations for each marker (label above the bar)
+    label_data = [
+        (lowest_dd,  "#000000", f"Lowest DD<br><b>{lowest_dd:.2f}%</b>",   "bottom"),
+        (avg_dd,     "#000000", f"Avg DD<br><b>{avg_dd:.2f}%</b>",         "bottom"),
+        (0.0,        "#000000", f"Open<br><b>0.00%</b>",                    "bottom"),
+        (avg_du,     "#000000", f"Avg DU<br><b>+{avg_du:.2f}%</b>",        "bottom"),
+        (highest_du, "#000000", f"Highest DU<br><b>+{highest_du:.2f}%</b>","bottom"),
+    ]
+
+    for x_val, color, text, yanchor in label_data:
+        fig.add_annotation(
+            x=x_val,
+            y=0,
+            yref="paper",
+            text=text,
+            showarrow=False,
+            font=dict(color=color, size=11),
+            align="center",
+            yanchor="top",
+            yshift=-8,
+        )
+
+    padding = abs(highest_du - lowest_dd) * 0.05
+    fig.update_layout(
+        barmode="overlay",
+        height=110,
+        margin=dict(l=0, r=0, t=10, b=60),
+        # paper_bgcolor="rgba(0,0,0,0)",
+        # plot_bgcolor="rgba(26,28,35,0.6)",
+        xaxis=dict(
+            range=[lowest_dd - padding, highest_du + padding],
+            showgrid=False,
+            zeroline=True,
+            zerolinecolor="rgba(255,255,255,0.3)",
+            zerolinewidth=2,
+            tickformat=".1f",
+            ticksuffix="%",
+            tickfont=dict(color="rgba(255,255,255,0.5)", size=10),
+        ),
+        yaxis=dict(visible=False),
+    )
+
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
 # --- Sidebar ---
 st.sidebar.title("🛠️ Configuration")
 symbol = st.sidebar.text_input("Stock Symbol", value="AAPL").upper()
@@ -368,18 +479,18 @@ with tab2:
             e_col3.metric("EMA 100", f"${analysis['ema_100_val']:,.2f}", help="Long-term value support")
 
             # 20-Day Drawdown/Drawup metrics
-            d_col1, d_col2, d_col3, d_col4 = st.columns(4)
+            d_col1, d_col2 = st.columns(2)
             d_col1.metric("20D Drawdown", f"{analysis['dd_20d']:.2f}%", help="Current decline from 20-day high")
             d_col2.metric("20D Drawup", f"{analysis['du_20d']:.2f}%", help="Current rise from 20-day low")
-            d_col3.metric("Avg Intraday DD", f"{analysis['avg_dd']:.2f}%", help="20-day average of (Low - Open) / Open")
-            d_col4.metric("Avg Intraday DU", f"{analysis['avg_du']:.2f}%", help="20-day average of (High - Open) / Open")
 
-            # Intraday Drawdown/Drawup Min/Max metrics
-            dd_col1, dd_col2, dd_col3, dd_col4 = st.columns(4)
-            dd_col1.metric("Lowest Intraday DD", f"{analysis['lowest_dd']:.2f}%", help="Lowest (most negative) intraday drawdown over the last 20 days")
-            dd_col2.metric("Highest Intraday DD", f"{analysis['highest_dd']:.2f}%", help="Highest (closest to zero) intraday drawdown over the last 20 days")
-            dd_col3.metric("Lowest Intraday DU", f"{analysis['lowest_du']:.2f}%", help="Lowest (closest to zero) intraday drawup over the last 20 days")
-            dd_col4.metric("Highest Intraday DU", f"{analysis['highest_du']:.2f}%", help="Highest (most positive) intraday drawup over the last 20 days")
+            st.write("")
+            st.markdown("### 📊 Intraday Volatility Spectrum (20-Day)")
+            render_volatility_scale(
+                analysis['lowest_dd'],
+                analysis['avg_dd'],
+                analysis['avg_du'],
+                analysis['highest_du']
+            )
 
             st.write("---")
             buy_col, sell_col = st.columns(2)

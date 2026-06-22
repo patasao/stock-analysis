@@ -168,6 +168,14 @@ The engine includes a dynamic calculator to predict the "New Average Cost" befor
         * **Horizon Sorting controls**: Enabled sorting stocks dynamically by 20D, 50D, 100D, or 200D growth rates.
         * **High Fidelity Grid Cards**: Rendered the Top 20 matching stocks in a clean 2-column layout. Each card acts as a standalone KPI sheet, detailing % growth and EMAs (20, 50, 100, 200) as metrics, displaying a color-coded buying rules score banner, and hosting a collapsible checklist showing exact core rules passing/failing status.
 
+    ### **Iteration 12: Intraday Volatility Spectrum Scale Bar (Current)**
+
+    * **Prompt:** Change the drawdown/up parameters to scale bar like: lowest intraday DD ------- AVG intraday DD -------- 0% ---------- AVG intraday DU --------- highest intraday DU.
+    * **Updates:**
+        * **Layout Restructuring**: Replaced the separate numeric metrics rows for intraday drawdown/drawup in the Technicals tab with a unified scale bar visualization.
+        * **Visual Spectrum Component**: Built `generate_volatility_scale()` returning custom HTML/CSS that proportionalizes and highlights the intraday movement range relative to the open price.
+        * **UX Enhancements**: Utilized distinct gradients (red/pink for drawdown, light green/green for drawup), glowing elements, and alternating vertical offsets for the labels to prevent overlaps.
+
 ---
 
 ## 5. Achievement & Impact
