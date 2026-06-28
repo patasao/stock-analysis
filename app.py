@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+import math
 
 # --- Configuration & Styling ---
 st.set_page_config(page_title="Stock Analysis Dashboard", layout="wide")
@@ -56,20 +57,22 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df['EMA_100'] = df['Close'].ewm(span=100, adjust=False).mean()
     df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
     
-    # ATR (14-period)
+    # ATR (14-period, Wilder smoothing)
     high_low = df['High'] - df['Low']
     high_close = (df['High'] - df['Close'].shift()).abs()
     low_close = (df['Low'] - df['Close'].shift()).abs()
     ranges = pd.concat([high_low, high_close, low_close], axis=1)
     true_range = ranges.max(axis=1)
-    df['ATR'] = true_range.rolling(14).mean()
+    df['ATR'] = true_range.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
     
-    # RSI (14-period)
+    # RSI (14-period, Wilder smoothing)
     delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / loss
+    gain = delta.where(delta > 0, 0).ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    rs = gain / loss.replace(0, pd.NA)
     df['RSI'] = 100 - (100 / (1 + rs))
+    df.loc[(loss == 0) & (gain > 0), 'RSI'] = 100
+    df.loc[(loss == 0) & (gain == 0), 'RSI'] = 50
     
     # Stochastic RSI
     rsi_min = df['RSI'].rolling(window=14).min()
@@ -97,17 +100,16 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df['BB_Upper'] = df['BB_Mid'] + (2 * df['BB_Std'])
     df['BB_Lower'] = df['BB_Mid'] - (2 * df['BB_Std'])
     
-    # ADX (14-period)
-    plus_dm = df['High'].diff()
-    minus_dm = df['Low'].diff()
-    plus_dm = plus_dm.where(plus_dm > 0, 0)
-    minus_dm = minus_dm.where(minus_dm < 0, 0).abs()
-    
-    tr = true_range.rolling(14).mean() # Simplified smooth TR
-    plus_di = 100 * (plus_dm.rolling(14).mean() / tr)
-    minus_di = 100 * (minus_dm.rolling(14).mean() / tr)
-    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
-    df['ADX'] = dx.rolling(14).mean()
+    # ADX (14-period, Wilder smoothing)
+    up_move = df['High'].diff()
+    down_move = -df['Low'].diff()
+    plus_dm = up_move.where((up_move > down_move) & (up_move > 0), 0)
+    minus_dm = down_move.where((down_move > up_move) & (down_move > 0), 0)
+    smoothed_tr = true_range.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    plus_di = 100 * (plus_dm.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean() / smoothed_tr)
+    minus_di = 100 * (minus_dm.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean() / smoothed_tr)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
+    df['ADX'] = dx.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
     
     # 52-Week High
     df['High_52w'] = df['High'].rolling(window=252, min_periods=1).max()
@@ -126,6 +128,292 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df['Highest_Drawup'] = df['Intraday_Drawup_Pct'].rolling(window=20).max()
     
     return df
+
+def is_finite(value):
+    try:
+        return value is not None and math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+def finite_float(value, default=0.0):
+    return float(value) if is_finite(value) else default
+
+def format_compact_number(value):
+    if not is_finite(value):
+        return "N/A"
+    value = float(value)
+    abs_value = abs(value)
+    if abs_value >= 1_000_000_000_000:
+        return f"${value / 1_000_000_000_000:.2f}T"
+    if abs_value >= 1_000_000_000:
+        return f"${value / 1_000_000_000:.2f}B"
+    if abs_value >= 1_000_000:
+        return f"${value / 1_000_000:.2f}M"
+    return f"${value:,.0f}"
+
+def format_percent(value):
+    return f"{float(value) * 100:.1f}%" if is_finite(value) and abs(float(value)) <= 2 else f"{float(value):.1f}%" if is_finite(value) else "N/A"
+
+def inspect_data_quality(df, symbol):
+    warnings = []
+    required = ['Open', 'High', 'Low', 'Close', 'Volume']
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        warnings.append(f"{symbol}: missing required columns: {', '.join(missing)}.")
+        return warnings
+
+    if len(df) < 252:
+        warnings.append(f"{symbol}: less than one trading year of data; 52-week and 200-day signals may be immature.")
+
+    latest_ts = df.index[-1]
+    if hasattr(latest_ts, "to_pydatetime"):
+        latest_dt = latest_ts.to_pydatetime().replace(tzinfo=None)
+        age_days = (datetime.now() - latest_dt).days
+        if age_days > 5:
+            warnings.append(f"{symbol}: latest bar is {latest_dt.date()}, which may be stale.")
+
+    null_counts = df[required].tail(60).isna().sum()
+    bad_cols = [f"{col}={int(count)}" for col, count in null_counts.items() if count > 0]
+    if bad_cols:
+        warnings.append(f"{symbol}: missing values in recent OHLCV data ({', '.join(bad_cols)}).")
+
+    if finite_float(df['Volume'].tail(20).mean()) == 0:
+        warnings.append(f"{symbol}: recent volume is zero or unavailable; volume-ratio signals are unreliable.")
+
+    return warnings
+
+def evaluate_strategy_row(data, idx=-1):
+    row = data.iloc[idx]
+    prev_row = data.iloc[idx - 1] if idx != 0 else row
+
+    curr_price = finite_float(row['Close'])
+    prev_close = finite_float(prev_row['Close'], curr_price)
+    price_change_pct = ((curr_price - prev_close) / prev_close) * 100 if prev_close else 0.0
+
+    ema_short_val = finite_float(row['EMA_1'])
+    ema_long_val = finite_float(row['EMA_2'])
+    ema_100_val = finite_float(row['EMA_100'])
+    ema_200_val = finite_float(row['EMA_200'])
+    rsi_val = finite_float(row['RSI'], 50.0)
+    res_val = finite_float(row['Resistance'])
+    sup_val = finite_float(row['Support'])
+    macd_val = finite_float(row['MACD'])
+    signal_val = finite_float(row['Signal_Line'])
+    atr_val = finite_float(row['ATR'])
+    adx_val = finite_float(row['ADX'])
+    stoch_rsi = finite_float(row['Stoch_RSI'], 50.0)
+
+    trend = "Uptrend" if ema_short_val > ema_long_val else "Downtrend"
+    trend_detail = "Bullish Alignment" if curr_price > ema_short_val > ema_long_val else "Bearish Alignment" if curr_price < ema_short_val < ema_long_val else "Neutral/Mixed"
+    is_bullish = macd_val > signal_val and rsi_val > 50
+    sentiment = "Bullish" if is_bullish else "Bearish"
+    sentiment_detail = "MACD & RSI Positive" if is_bullish else "Momentum/RSI Weak"
+
+    high_10d = finite_float(row['High_10d'], curr_price)
+    drawdown_10d = (curr_price - high_10d) / high_10d if high_10d else 0.0
+    ema20_dist = (curr_price - ema_short_val) / ema_short_val if ema_short_val else 0.0
+    start_idx = max(0, idx - 19) if idx >= 0 else max(0, len(data) - 20)
+    end_idx = idx + 1 if idx >= 0 else len(data)
+    avg_vol = finite_float(data['Volume'].iloc[start_idx:end_idx].mean())
+    latest_vol = finite_float(row['Volume'])
+    vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0.0
+
+    c1 = drawdown_10d <= -0.08
+    c2 = abs(ema20_dist) <= 0.06
+    c3 = 42 <= rsi_val <= 58
+    c4 = vol_ratio >= 1.6
+    c5 = macd_val > signal_val
+    core_score = sum([c1, c2, c3, c4, c5])
+
+    high_52w = finite_float(row['High_52w'], curr_price)
+    bb_mid = finite_float(row['BB_Mid'], curr_price)
+    s1 = curr_price > ema_long_val
+    s2 = macd_val > signal_val
+    s3 = (0.78 * high_52w) <= curr_price <= (0.94 * high_52w) if high_52w else False
+    s4 = curr_price > ema_100_val
+    s5 = adx_val > 20
+    s6 = curr_price > bb_mid
+    s7 = stoch_rsi < 75
+    supp_score = sum([s1, s2, s3, s4, s5, s6, s7])
+
+    risk_fail_rsi = rsi_val > 68
+    risk_fail_ema20 = ema20_dist > 0.08
+    entry_level = "Avoid"
+    pos_size = "No Entry (Risk/Core Failure)" if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2) else "0%"
+    color = "red"
+    if not (risk_fail_rsi or risk_fail_ema20 or not (c1 and c2)):
+        if core_score >= 4 and supp_score >= 3:
+            entry_level, pos_size, color = "A+", "Full size (100%)", "green"
+        elif core_score >= 4 and supp_score >= 2:
+            entry_level, pos_size, color = "A", "70-80%", "lightgreen"
+        elif core_score >= 4:
+            entry_level, pos_size, color = "B", "50-60%", "orange"
+        elif core_score == 3:
+            entry_level, pos_size, color = "C", "30-40%", "yellow"
+
+    bb_upper = finite_float(row['BB_Upper'])
+    ex1 = curr_price < ema_short_val
+    ex2 = macd_val < signal_val
+    ex3 = rsi_val > 70
+    ex4 = curr_price >= bb_upper if bb_upper else False
+    ex5 = curr_price >= (res_val * 0.98) if res_val else False
+    exit_score = sum([ex1, ex2, ex3, ex4, ex5])
+    exit_level, exit_color, exit_action = "Hold", "gray", "Maintain Position"
+    if exit_score >= 3 or ex1:
+        exit_level, exit_color, exit_action = "SELL / REDUCE", "red", "Exit or Trim 50-100%"
+    elif exit_score >= 1:
+        exit_level, exit_color, exit_action = "CAUTION", "orange", "Tighten Stop Loss"
+
+    avg_dd = finite_float(row['Avg_Drawdown'])
+    suggested_entry = curr_price * (1 + avg_dd / 100) if avg_dd else curr_price
+    stop_loss = suggested_entry * 0.92
+    target_resistance = res_val if res_val > suggested_entry else suggested_entry + (2 * (suggested_entry - stop_loss))
+    risk_per_share = max(suggested_entry - stop_loss, 0.0)
+    reward_per_share = max(target_resistance - suggested_entry, 0.0)
+    reward_risk = reward_per_share / risk_per_share if risk_per_share else 0.0
+
+    return {
+        "curr_price": curr_price,
+        "price_change_pct": price_change_pct,
+        "ema_short_val": ema_short_val,
+        "ema_long_val": ema_long_val,
+        "ema_100_val": ema_100_val,
+        "ema_200_val": ema_200_val,
+        "atr_val": atr_val,
+        "rsi_val": rsi_val,
+        "res_val": res_val,
+        "sup_val": sup_val,
+        "trend": trend,
+        "trend_detail": trend_detail,
+        "sentiment": sentiment,
+        "sentiment_detail": sentiment_detail,
+        "dd_20d": finite_float(row['Drawdown_20d']),
+        "du_20d": finite_float(row['Drawup_20d']),
+        "avg_dd": avg_dd,
+        "avg_du": finite_float(row['Avg_Drawup']),
+        "lowest_dd": finite_float(row['Lowest_Drawdown']),
+        "highest_dd": finite_float(row['Highest_Drawdown']),
+        "lowest_du": finite_float(row['Lowest_Drawup']),
+        "highest_du": finite_float(row['Highest_Drawup']),
+        "entry_level": entry_level,
+        "pos_size": pos_size,
+        "color": color,
+        "core_score": core_score,
+        "supp_score": supp_score,
+        "risk_fail_rsi": risk_fail_rsi,
+        "risk_fail_ema20": risk_fail_ema20,
+        "exit_level": exit_level,
+        "exit_color": exit_color,
+        "exit_action": exit_action,
+        "exit_score": exit_score,
+        "ex1": ex1, "ex2": ex2, "ex3": ex3, "ex4": ex4, "ex5": ex5,
+        "drawdown_10d": drawdown_10d,
+        "ema20_dist": ema20_dist,
+        "vol_ratio": vol_ratio,
+        "adx_val": adx_val,
+        "stoch_rsi": stoch_rsi,
+        "c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5,
+        "s1": s1, "s2": s2, "s3": s3, "s4": s4, "s5": s5, "s6": s6, "s7": s7,
+        "macd_val": macd_val,
+        "signal_val": signal_val,
+        "suggested_entry": suggested_entry,
+        "stop_loss": stop_loss,
+        "target_resistance": target_resistance,
+        "risk_per_share": risk_per_share,
+        "reward_per_share": reward_per_share,
+        "reward_risk": reward_risk
+    }
+
+def summarize_backtest(data):
+    rows = []
+    if len(data) < 280:
+        return {"entry_count": 0, "message": "Need at least 280 daily bars for a meaningful 20-day signal backtest."}
+
+    for idx in range(252, len(data) - 20):
+        signal = evaluate_strategy_row(data, idx)
+        if signal['entry_level'] == "Avoid":
+            continue
+        entry_price = finite_float(data['Close'].iloc[idx])
+        if not entry_price:
+            continue
+        ret_5d = (finite_float(data['Close'].iloc[idx + 5], entry_price) - entry_price) / entry_price * 100
+        ret_20d = (finite_float(data['Close'].iloc[idx + 20], entry_price) - entry_price) / entry_price * 100
+        future_low = finite_float(data['Low'].iloc[idx + 1:idx + 21].min(), entry_price)
+        max_adverse = (future_low - entry_price) / entry_price * 100
+        rows.append({"level": signal['entry_level'], "ret_5d": ret_5d, "ret_20d": ret_20d, "max_adverse": max_adverse})
+
+    if not rows:
+        return {"entry_count": 0, "message": "No non-Avoid historical entries found under the current rules."}
+
+    bt = pd.DataFrame(rows)
+    return {
+        "entry_count": int(len(bt)),
+        "win_rate_20d": float((bt['ret_20d'] > 0).mean() * 100),
+        "avg_return_5d": float(bt['ret_5d'].mean()),
+        "avg_return_20d": float(bt['ret_20d'].mean()),
+        "worst_adverse_20d": float(bt['max_adverse'].min()),
+        "by_level": bt.groupby('level')['ret_20d'].agg(['count', 'mean']).reset_index()
+    }
+
+@st.cache_data(ttl=86400)
+def get_fundamental_snapshot(symbol):
+    try:
+        info = yf.Ticker(symbol).get_info()
+        return {
+            "Market Cap": info.get("marketCap"),
+            "Trailing P/E": info.get("trailingPE"),
+            "Forward P/E": info.get("forwardPE"),
+            "PEG": info.get("pegRatio"),
+            "Revenue Growth": info.get("revenueGrowth"),
+            "Earnings Growth": info.get("earningsGrowth"),
+            "Gross Margin": info.get("grossMargins"),
+            "Free Cash Flow": info.get("freeCashflow"),
+            "Debt/Equity": info.get("debtToEquity"),
+            "ROE": info.get("returnOnEquity"),
+            "Sector": info.get("sector"),
+            "Industry": info.get("industry")
+        }
+    except Exception as exc:
+        return {"Error": str(exc)}
+
+@st.cache_data(ttl=3600)
+def get_relative_strength(symbol, period="1y"):
+    benchmarks = ["SPY", "QQQ"]
+    try:
+        data = yf.download([symbol] + benchmarks, period=period, interval="1d", progress=False)
+        close = data['Close'] if isinstance(data.columns, pd.MultiIndex) else data
+        results = {}
+        for days in [20, 50, 100, 200]:
+            if len(close) <= days or symbol not in close:
+                continue
+            stock_ret = (close[symbol].iloc[-1] / close[symbol].iloc[-days - 1] - 1) * 100
+            for benchmark in benchmarks:
+                if benchmark in close:
+                    bench_ret = (close[benchmark].iloc[-1] / close[benchmark].iloc[-days - 1] - 1) * 100
+                    results[f"{days}D vs {benchmark}"] = float(stock_ret - bench_ret)
+        return results
+    except Exception as exc:
+        return {"Error": str(exc)}
+
+@st.cache_data(ttl=3600)
+def get_market_regime():
+    try:
+        data = yf.download(["SPY", "QQQ", "^VIX"], period="1y", interval="1d", progress=False)
+        close = data['Close'] if isinstance(data.columns, pd.MultiIndex) else data
+        spy = close["SPY"].dropna()
+        qqq = close["QQQ"].dropna()
+        vix = close["^VIX"].dropna()
+        spy_ema200 = spy.ewm(span=200, adjust=False).mean().iloc[-1]
+        qqq_ema200 = qqq.ewm(span=200, adjust=False).mean().iloc[-1]
+        regime = "Risk-On" if spy.iloc[-1] > spy_ema200 and qqq.iloc[-1] > qqq_ema200 else "Risk-Off / Defensive"
+        return {
+            "Regime": regime,
+            "SPY vs EMA200": float((spy.iloc[-1] / spy_ema200 - 1) * 100),
+            "QQQ vs EMA200": float((qqq.iloc[-1] / qqq_ema200 - 1) * 100),
+            "VIX": float(vix.iloc[-1]) if len(vix) else None
+        }
+    except Exception as exc:
+        return {"Error": str(exc)}
 
 def get_analysis(symbol, period, interval, ema_short, ema_long):
     data = fetch_stock_data(symbol, period, interval)
@@ -402,6 +690,82 @@ def render_volatility_scale(lowest_dd, avg_dd, avg_du, highest_du):
 
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
+from analysis_core import (
+    calculate_indicators,
+    evaluate_strategy_row,
+    finite_float,
+    format_compact_number,
+    format_percent,
+    inspect_data_quality,
+    is_finite,
+    summarize_backtest,
+)
+
+def get_analysis(symbol, period, interval, ema_short, ema_long):
+    data = fetch_stock_data(symbol, period, interval)
+    if data is None or len(data) < 2:
+        return None
+
+    data = calculate_indicators(data, ema_short, ema_long)
+    analysis = evaluate_strategy_row(data)
+    analysis["df"] = data
+    analysis["quality_warnings"] = inspect_data_quality(data, symbol)
+    analysis["backtest"] = summarize_backtest(data)
+    return analysis
+
+TECH_HELP = {
+    "RSI (14)": "Relative Strength Index using a 14-period Wilder calculation. Above 70 is often extended; below 30 is often oversold.",
+    "Trend (EMA)": "Compares short and long exponential moving averages to identify the current trend bias.",
+    "Sentiment": "Momentum label based on MACD versus signal line and RSI above or below 50.",
+    "EMA 20": "Short-term exponential moving average. Often used as dynamic support/resistance for active trends.",
+    "EMA 50": "Medium-term exponential moving average. Often used to judge institutional trend support.",
+    "EMA 100": "Longer-term exponential moving average. Helps separate short pullbacks from deeper trend weakness.",
+    "Market Cap": "Company equity value calculated as share price times shares outstanding.",
+    "Forward P/E": "Expected price-to-earnings ratio based on forward earnings estimates.",
+    "PEG": "P/E adjusted for expected growth. Lower can imply cheaper growth, but estimates can be unreliable.",
+    "Revenue Growth": "Most recent reported revenue growth rate from Yahoo Finance fundamentals.",
+    "Debt/Equity": "Leverage ratio comparing total debt to shareholder equity.",
+    "Relative Strength": "Stock return minus benchmark return over the selected window. Positive means the stock outperformed.",
+    "Regime": "Broad market condition based on SPY and QQQ trading above or below their EMA200.",
+    "SPY vs EMA200": "Percent distance of SPY from its 200-day exponential moving average.",
+    "QQQ vs EMA200": "Percent distance of QQQ from its 200-day exponential moving average.",
+    "VIX": "CBOE volatility index. Higher values generally indicate higher market stress.",
+    "Suggested Entry": "Current price adjusted by the stock's average 20-day intraday drawdown from open to low.",
+    "Stop": "Risk-control level set 8% below the suggested entry.",
+    "Target": "Uses 20-day resistance when above entry; otherwise falls back to a 2R target.",
+    "Reward/Risk": "Potential reward divided by risk per share. Values above 2R are generally more attractive.",
+    "Backtest Entries": "Historical non-Avoid signals found using the current rules.",
+    "20D Win Rate": "Percentage of historical signals with a positive 20-trading-day return.",
+    "Avg 20D Return": "Average 20-trading-day return after historical non-Avoid signals.",
+    "Worst 20D Adverse": "Worst low-to-entry move during the 20 trading days after historical signals.",
+    "20D Drawdown": "Current close compared with the highest high in the last 20 trading days.",
+    "20D Drawup": "Current close compared with the lowest low in the last 20 trading days.",
+    "Drawdown >= 8%": "Core entry rule: price has pulled back at least 8% from the 10-day high.",
+    "Within +/-6% EMA20": "Core entry rule: price is not too stretched from EMA20.",
+    "RSI 42-58": "Core entry rule: RSI is in a neutral reset zone, not overbought or deeply weak.",
+    "Vol Ratio >= 1.6x": "Core entry rule: latest volume is at least 1.6 times the recent 20-day average.",
+    "MACD > Signal": "Momentum rule: MACD line is above its signal line.",
+    "Above EMA50": "Supporting trend rule: price is above the medium-term EMA.",
+    "78%-94% of 52W High": "Supporting relative-position rule: stock is below its high but not deeply broken.",
+    "Above EMA100": "Supporting trend rule: price remains above the longer-term EMA100.",
+    "ADX > 20": "Supporting trend-strength rule: ADX above 20 suggests a more defined trend.",
+    "Above BB Middle": "Supporting volatility rule: price is above the Bollinger middle band.",
+    "Stoch RSI < 75": "Supporting momentum rule: stochastic RSI is not too extended.",
+    "Price below EMA 20": "Exit rule: close below EMA20 can indicate a short-term trend break.",
+    "MACD Bearish Crossover": "Exit rule: MACD below signal suggests momentum deterioration.",
+    "RSI Overbought": "Exit rule: RSI above 70 can signal an extended move vulnerable to reversal.",
+    "Price at Upper Bollinger Band": "Exit rule: price at the upper band can indicate volatility extension.",
+    "Price near 20D Resistance": "Exit rule: price is within 2% of the 20-day resistance level.",
+}
+
+def condition_checkbox(label, passed, value_text, help_key):
+    st.checkbox(
+        f"{label} ({value_text})",
+        value=bool(passed),
+        disabled=True,
+        help=TECH_HELP[help_key],
+    )
+
 # --- Sidebar ---
 st.sidebar.title("🛠️ Configuration")
 symbol = st.sidebar.text_input("Stock Symbol", value="AAPL").upper()
@@ -424,6 +788,8 @@ with tab1:
         
         if analysis:
             data = analysis['df']
+            for warning in analysis.get('quality_warnings', []):
+                st.warning(warning)
             # Metrics Row
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Price", f"${analysis['curr_price']:,.2f}", f"{analysis['price_change_pct']:+.2f}%")
@@ -464,24 +830,80 @@ with tab2:
             
             # RSI KPI
             rsi_status = "Overbought ⚠️" if analysis['rsi_val'] > 70 else "Oversold ⚠️" if analysis['rsi_val'] < 30 else "Neutral"
-            t_col1.metric("RSI (14)", f"{analysis['rsi_val']:.2f}", rsi_status)
+            t_col1.metric("RSI (14)", f"{analysis['rsi_val']:.2f}", rsi_status, help=TECH_HELP["RSI (14)"])
             
             # Trend KPI
-            t_col2.metric("Trend (EMA)", analysis['trend'], analysis['trend_detail'])
+            t_col2.metric("Trend (EMA)", analysis['trend'], analysis['trend_detail'], help=TECH_HELP["Trend (EMA)"])
             
             # Bullish/Bearish KPI
-            t_col3.metric("Sentiment", analysis['sentiment'], analysis['sentiment_detail'])
+            t_col3.metric("Sentiment", analysis['sentiment'], analysis['sentiment_detail'], help=TECH_HELP["Sentiment"])
 
             # EMA Targets row
             e_col1, e_col2, e_col3 = st.columns(3)
-            e_col1.metric("EMA 20", f"${analysis['ema_short_val']:,.2f}", help="Short-term momentum support")
-            e_col2.metric("EMA 50", f"${analysis['ema_long_val']:,.2f}", help="Medium-term institutional support")
-            e_col3.metric("EMA 100", f"${analysis['ema_100_val']:,.2f}", help="Long-term value support")
+            e_col1.metric("EMA 20", f"${analysis['ema_short_val']:,.2f}", help=TECH_HELP["EMA 20"])
+            e_col2.metric("EMA 50", f"${analysis['ema_long_val']:,.2f}", help=TECH_HELP["EMA 50"])
+            e_col3.metric("EMA 100", f"${analysis['ema_100_val']:,.2f}", help=TECH_HELP["EMA 100"])
+
+            for warning in analysis.get('quality_warnings', []):
+                st.warning(warning)
+
+            st.write("---")
+            st.subheader("Fundamentals, Relative Strength, and Market Regime")
+            fund = get_fundamental_snapshot(symbol)
+            rel_strength = get_relative_strength(symbol)
+            regime = get_market_regime()
+
+            if "Error" in fund:
+                st.warning(f"Fundamental data unavailable: {fund['Error']}")
+            else:
+                f1, f2, f3, f4, f5 = st.columns(5)
+                f1.metric("Market Cap", format_compact_number(fund.get("Market Cap")), help=TECH_HELP["Market Cap"])
+                f2.metric("Forward P/E", f"{fund.get('Forward P/E'):.2f}" if is_finite(fund.get("Forward P/E")) else "N/A", help=TECH_HELP["Forward P/E"])
+                f3.metric("PEG", f"{fund.get('PEG'):.2f}" if is_finite(fund.get("PEG")) else "N/A", help=TECH_HELP["PEG"])
+                f4.metric("Revenue Growth", format_percent(fund.get("Revenue Growth")), help=TECH_HELP["Revenue Growth"])
+                f5.metric("Debt/Equity", f"{fund.get('Debt/Equity'):.1f}" if is_finite(fund.get("Debt/Equity")) else "N/A", help=TECH_HELP["Debt/Equity"])
+                st.caption(f"Sector: {fund.get('Sector', 'N/A')} | Industry: {fund.get('Industry', 'N/A')}")
+
+            r_cols = st.columns(4)
+            if "Error" in rel_strength:
+                r_cols[0].warning(f"Relative strength unavailable: {rel_strength['Error']}")
+            else:
+                for col, key in zip(r_cols, ["20D vs SPY", "50D vs SPY", "100D vs SPY", "200D vs SPY"]):
+                    col.metric(key, f"{rel_strength.get(key, 0.0):+.1f}%", help=TECH_HELP["Relative Strength"])
+
+            m_cols = st.columns(4)
+            if "Error" in regime:
+                m_cols[0].warning(f"Market regime unavailable: {regime['Error']}")
+            else:
+                m_cols[0].metric("Regime", regime.get("Regime", "N/A"), help=TECH_HELP["Regime"])
+                m_cols[1].metric("SPY vs EMA200", f"{regime.get('SPY vs EMA200', 0.0):+.1f}%", help=TECH_HELP["SPY vs EMA200"])
+                m_cols[2].metric("QQQ vs EMA200", f"{regime.get('QQQ vs EMA200', 0.0):+.1f}%", help=TECH_HELP["QQQ vs EMA200"])
+                m_cols[3].metric("VIX", f"{regime.get('VIX'):.2f}" if is_finite(regime.get("VIX")) else "N/A", help=TECH_HELP["VIX"])
+
+            st.write("---")
+            st.subheader("Trade Plan and Backtest Check")
+            p1, p2, p3, p4 = st.columns(4)
+            p1.metric("Suggested Entry", f"${analysis['suggested_entry']:,.2f}", help=TECH_HELP["Suggested Entry"])
+            p2.metric("Stop", f"${analysis['stop_loss']:,.2f}", help=TECH_HELP["Stop"])
+            p3.metric("Target", f"${analysis['target_resistance']:,.2f}", help=TECH_HELP["Target"])
+            p4.metric("Reward/Risk", f"{analysis['reward_risk']:.2f}R", help=TECH_HELP["Reward/Risk"])
+
+            bt = analysis.get("backtest", {})
+            if bt.get("entry_count", 0) == 0:
+                st.info(bt.get("message", "No backtest entries available."))
+            else:
+                b1, b2, b3, b4 = st.columns(4)
+                b1.metric("Backtest Entries", bt["entry_count"], help=TECH_HELP["Backtest Entries"])
+                b2.metric("20D Win Rate", f"{bt['win_rate_20d']:.1f}%", help=TECH_HELP["20D Win Rate"])
+                b3.metric("Avg 20D Return", f"{bt['avg_return_20d']:+.2f}%", help=TECH_HELP["Avg 20D Return"])
+                b4.metric("Worst 20D Adverse", f"{bt['worst_adverse_20d']:.2f}%", help=TECH_HELP["Worst 20D Adverse"])
+                with st.expander("Backtest by score level"):
+                    st.dataframe(bt["by_level"], use_container_width=True, hide_index=True)
 
             # 20-Day Drawdown/Drawup metrics
             d_col1, d_col2 = st.columns(2)
-            d_col1.metric("20D Drawdown", f"{analysis['dd_20d']:.2f}%", help="Current decline from 20-day high")
-            d_col2.metric("20D Drawup", f"{analysis['du_20d']:.2f}%", help="Current rise from 20-day low")
+            d_col1.metric("20D Drawdown", f"{analysis['dd_20d']:.2f}%", help=TECH_HELP["20D Drawdown"])
+            d_col2.metric("20D Drawup", f"{analysis['du_20d']:.2f}%", help=TECH_HELP["20D Drawup"])
 
             st.write("")
             st.markdown("### 📊 Intraday Volatility Spectrum (20-Day)")
@@ -522,21 +944,21 @@ with tab2:
                     c_col1, c_col2 = st.columns(2)
                     with c_col1:
                         st.write("**Core Conditions**")
-                        st.write(f"{'✅' if analysis['c1'] else '❌'} Drawdown >= 8% ({analysis['drawdown_10d']:.1%})")
-                        st.write(f"{'✅' if analysis['c2'] else '❌'} Within ±6% EMA20 ({analysis['ema20_dist']:.1%})")
-                        st.write(f"{'✅' if analysis['c3'] else '❌'} RSI 42-58 ({analysis['rsi_val']:.1f})")
-                        st.write(f"{'✅' if analysis['c4'] else '❌'} Vol Ratio >= 1.6x ({analysis['vol_ratio']:.1f}x)")
-                        st.write(f"{'✅' if analysis['c5'] else '❌'} MACD > Signal")
+                        condition_checkbox("Drawdown >= 8%", analysis['c1'], f"{analysis['drawdown_10d']:.1%}", "Drawdown >= 8%")
+                        condition_checkbox("Within +/-6% EMA20", analysis['c2'], f"{analysis['ema20_dist']:.1%}", "Within +/-6% EMA20")
+                        condition_checkbox("RSI 42-58", analysis['c3'], f"{analysis['rsi_val']:.1f}", "RSI 42-58")
+                        condition_checkbox("Vol Ratio >= 1.6x", analysis['c4'], f"{analysis['vol_ratio']:.1f}x", "Vol Ratio >= 1.6x")
+                        condition_checkbox("MACD > Signal", analysis['c5'], "core", "MACD > Signal")
                     
                     with c_col2:
                         st.write("**Supporting Conditions**")
-                        st.write(f"{'✅' if analysis['s1'] else '❌'} Above EMA50")
-                        st.write(f"{'✅' if analysis['s2'] else '❌'} MACD > Signal")
-                        st.write(f"{'✅' if analysis['s3'] else '❌'} 78%-94% of 52W High")
-                        st.write(f"{'✅' if analysis['s4'] else '❌'} Above EMA100")
-                        st.write(f"{'✅' if analysis['s5'] else '❌'} ADX > 20 ({analysis['adx_val']:.1f})")
-                        st.write(f"{'✅' if analysis['s6'] else '❌'} Above BB Middle")
-                        st.write(f"{'✅' if analysis['s7'] else '❌'} Stoch RSI < 75 ({analysis['stoch_rsi']:.1f})")
+                        condition_checkbox("Above EMA50", analysis['s1'], "price > EMA50", "Above EMA50")
+                        condition_checkbox("MACD > Signal", analysis['s2'], "support", "MACD > Signal")
+                        condition_checkbox("78%-94% of 52W High", analysis['s3'], "range", "78%-94% of 52W High")
+                        condition_checkbox("Above EMA100", analysis['s4'], "price > EMA100", "Above EMA100")
+                        condition_checkbox("ADX > 20", analysis['s5'], f"{analysis['adx_val']:.1f}", "ADX > 20")
+                        condition_checkbox("Above BB Middle", analysis['s6'], "price > mid", "Above BB Middle")
+                        condition_checkbox("Stoch RSI < 75", analysis['s7'], f"{analysis['stoch_rsi']:.1f}", "Stoch RSI < 75")
 
             with sell_col:
                 st.subheader("🚩 Selling Score (Exit Rules)")
@@ -556,11 +978,11 @@ with tab2:
                 
                 st.write("") 
                 st.write(f"**Exit Signals Triggered:** {analysis['exit_score']}/5")
-                st.write(f"{'🔴' if analysis['ex1'] else '⚪'} Price below EMA 20 (Trend Break)")
-                st.write(f"{'🔴' if analysis['ex2'] else '⚪'} MACD Bearish Crossover")
-                st.write(f"{'🔴' if analysis['ex3'] else '⚪'} RSI Overbought (>70)")
-                st.write(f"{'🔴' if analysis['ex4'] else '⚪'} Price at Upper Bollinger Band")
-                st.write(f"{'🔴' if analysis['ex5'] else '⚪'} Price near 20D Resistance")
+                condition_checkbox("Price below EMA 20", analysis['ex1'], "trend break", "Price below EMA 20")
+                condition_checkbox("MACD Bearish Crossover", analysis['ex2'], "momentum", "MACD Bearish Crossover")
+                condition_checkbox("RSI Overbought", analysis['ex3'], ">70", "RSI Overbought")
+                condition_checkbox("Price at Upper Bollinger Band", analysis['ex4'], "extension", "Price at Upper Bollinger Band")
+                condition_checkbox("Price near 20D Resistance", analysis['ex5'], "within 2%", "Price near 20D Resistance")
 
             st.write("---")
             st.subheader("📊 Interactive Multi-Indicator Analysis")
@@ -568,7 +990,8 @@ with tab2:
             selected_indicators = st.multiselect(
                 "Select indicators to overlay or view:",
                 options=["EMAs (20, 50, 100)", "Bollinger Bands", "Support/Resistance", "RSI", "MACD", "ADX"],
-                default=["EMAs (20, 50, 100)", "RSI"]
+                default=["EMAs (20, 50, 100)", "RSI"],
+                help="Choose which overlays and oscillator panels to show in the combined technical chart."
             )
 
             # Unified Chart Logic
@@ -690,6 +1113,7 @@ with tab3:
 
 with tab4:
     st.subheader("🚀 Top 20 High Growth Stocks from S&P500")
+    st.caption("Scanner uses the current S&P 500 membership list. Use this for current discovery, not historical backtests, because it has survivorship bias.")
     
     # 1. Fetch S&P500 tickers & data
     @st.cache_data(ttl=86400)
@@ -744,96 +1168,39 @@ with tab4:
                 g_100 = get_growth(100)
                 g_200 = get_growth(200)
                 
-                curr_p = float(df_ind['Close'].iloc[-1])
-                ema20 = float(df_ind['EMA_1'].iloc[-1])
-                ema50 = float(df_ind['EMA_2'].iloc[-1])
-                ema100 = float(df_ind['EMA_100'].iloc[-1])
-                ema200 = float(df_ind['EMA_200'].iloc[-1])
-                
-                # Core conditions
-                rsi_val = float(df_ind['RSI'].iloc[-1])
-                macd_val = float(df_ind['MACD'].iloc[-1])
-                signal_val = float(df_ind['Signal_Line'].iloc[-1])
-                latest_vol = float(df_ind['Volume'].iloc[-1])
-                avg_vol = float(df_ind['Volume'].rolling(20).mean().iloc[-1])
-                vol_ratio = latest_vol / avg_vol if avg_vol > 0 else 0.0
-                
-                high_10d = float(df_ind['High_10d'].iloc[-1])
-                drawdown_10d = (curr_p - high_10d) / high_10d
-                
-                c1 = drawdown_10d <= -0.08
-                ema20_dist = (curr_p - ema20) / ema20
-                c2 = abs(ema20_dist) <= 0.06
-                c3 = 42 <= rsi_val <= 58
-                c4 = vol_ratio >= 1.6
-                c5 = macd_val > signal_val
-                core_score = sum([c1, c2, c3, c4, c5])
-                
-                # Supporting conditions
-                s1 = curr_p > ema50
-                s2 = macd_val > signal_val
-                high_52w = float(df_ind['High_52w'].iloc[-1])
-                s3 = (0.78 * high_52w) <= curr_p <= (0.94 * high_52w)
-                s4 = curr_p > ema100
-                adx_val = float(df_ind['ADX'].iloc[-1])
-                s5 = adx_val > 20
-                bb_mid = float(df_ind['BB_Mid'].iloc[-1])
-                s6 = curr_p > bb_mid
-                stoch_rsi = float(df_ind['Stoch_RSI'].iloc[-1])
-                s7 = stoch_rsi < 75
-                supp_score = sum([s1, s2, s3, s4, s5, s6, s7])
-                
-                risk_fail_rsi = rsi_val > 68
-                risk_fail_ema20 = ema20_dist > 0.08
-                
-                entry_level = "Avoid"
-                pos_size = "0%"
-                color = "red"
-                if risk_fail_rsi or risk_fail_ema20 or not (c1 and c2):
-                    entry_level = "Avoid"
-                    pos_size = "No Entry (Risk/Core Failure)"
-                    color = "#FFCCCC"
-                elif core_score >= 4 and supp_score >= 3:
-                    entry_level = "A+"
-                    pos_size = "Full size (100%)"
-                    color = "#CCFFCC"
-                elif core_score >= 4 and supp_score >= 2:
-                    entry_level = "A"
-                    pos_size = "70-80%"
-                    color = "#E5FFE5"
-                elif core_score >= 4:
-                    entry_level = "B"
-                    pos_size = "50-60%"
-                    color = "#FFE5CC"
-                elif core_score == 3:
-                    entry_level = "C"
-                    pos_size = "30-40%"
-                    color = "#FFFFCC"
+                signal = evaluate_strategy_row(df_ind)
+                color_map = {
+                    "red": "#FFCCCC",
+                    "green": "#CCFFCC",
+                    "lightgreen": "#E5FFE5",
+                    "orange": "#FFE5CC",
+                    "yellow": "#FFFFCC"
+                }
                 
                 results.append({
                     "ticker": ticker,
-                    "curr_price": curr_p,
+                    "curr_price": signal['curr_price'],
                     "growth_20d": g_20,
                     "growth_50d": g_50,
                     "growth_100d": g_100,
                     "growth_200d": g_200,
-                    "ema20": ema20,
-                    "ema50": ema50,
-                    "ema100": ema100,
-                    "ema200": ema200,
-                    "core_score": core_score,
-                    "supp_score": supp_score,
-                    "total_score": core_score + supp_score,
-                    "entry_level": entry_level,
-                    "pos_size": pos_size,
-                    "color": color,
-                    "c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5,
-                    "drawdown_10d": drawdown_10d,
-                    "ema20_dist": ema20_dist,
-                    "rsi_val": rsi_val,
-                    "vol_ratio": vol_ratio,
-                    "macd_val": macd_val,
-                    "signal_val": signal_val
+                    "ema20": signal['ema_short_val'],
+                    "ema50": signal['ema_long_val'],
+                    "ema100": signal['ema_100_val'],
+                    "ema200": signal['ema_200_val'],
+                    "core_score": signal['core_score'],
+                    "supp_score": signal['supp_score'],
+                    "total_score": signal['core_score'] + signal['supp_score'],
+                    "entry_level": signal['entry_level'],
+                    "pos_size": signal['pos_size'],
+                    "color": color_map.get(signal['color'], "#FFCCCC"),
+                    "c1": signal['c1'], "c2": signal['c2'], "c3": signal['c3'], "c4": signal['c4'], "c5": signal['c5'],
+                    "drawdown_10d": signal['drawdown_10d'],
+                    "ema20_dist": signal['ema20_dist'],
+                    "rsi_val": signal['rsi_val'],
+                    "vol_ratio": signal['vol_ratio'],
+                    "macd_val": signal['macd_val'],
+                    "signal_val": signal['signal_val']
                 })
             except Exception as e:
                 continue

@@ -1,86 +1,55 @@
-# 📈 Stock Insight Dashboard
+# Stock Insight Dashboard
 
-A professional-grade financial analysis web application built with **Streamlit** and **Python**. This dashboard provides real-time market data, advanced technical indicators, and a specialized custom trading strategy simulator.
+A Streamlit dashboard for technical stock screening, strategy scoring, market-context checks, and watchlist comparison.
 
-## 🚀 Live Demo
-[View Live App](https://ps-stock-analysis.streamlit.app/)
+## Features
 
-## ✨ Features
-*   **Real-Time Data:** Powered by `yfinance` for up-to-the-minute stock and crypto price action.
-*   **Advanced Technical Indicators:** 
-    *   **Trend:** Exponential Moving Averages (EMA 20 & 50) with **Trend KPI cards** (Uptrend/Downtrend).
-    *   **Momentum:** Relative Strength Index (RSI 14) and MACD (Moving Average Convergence Divergence) with **integrated strategy guides** and **Sentiment KPIs**.
-    *   **Volatility:** ATR-based entry limits.
-    *   **Structure:** 20-Day Support and Resistance discovery.
-*   **Interactive Visualizations:** High-fidelity Candlestick and technical charts using `Plotly`. Includes a **Unified Multi-Indicator Chart** with interactive toggles for EMAs, Bollinger Bands, Support/Resistance, RSI, MACD, and ADX.
-*   **Multi-Stock Analysis:** A new dedicated tab for high-speed technical comparison.
-    *   **Batch Analysis:** Input multiple tickers (comma-separated) to generate a unified comparison table.
-    *   **Standardized Metrics:** Compare Price, S/R levels, EMAs, RSI, Trend, Sentiment, and Intraday Volatility across your entire watchlist.
-    *   **Unified Scoring:** View Buy/Sell scores for multiple stocks in a single view for efficient decision-making.
-*   **Educational Integration:** In-app strategy guides and tooltips explaining RSI, MACD, Trading Entry Rules, Exit Rules, and EMA targets.
-*   **Performance Optimized:** Integrated `@st.cache_data` for data fetching and responsive UI.
-*   **Trading Entry Rules (Composite Strategy):** A sophisticated rule-based engine that evaluates stock setups using a 12-point scoring system (Core & Supporting conditions). Features include:
-    *   **Intraday Volatility Engine:** New calculations for **Avg Intraday Drawdown/Drawup** and 20-day rolling **Lowest/Highest Intraday Drawdown/Drawup** (Open-to-Low/High) for precise intraday entry planning.
-    *   **High Growth Stocks Scanner:** A dedicated discovery scanner tab that fetches all S&P 500 tickers, filters them through 5 customizable Core Buying Rule selectbox slicers, and displays the Top 20 stocks sorted by growth.
-    *   **High Fidelity KPI Cards:** Rich visualization of the Top 20 stocks containing 20D, 50D, 100D, and 200D growth metrics, EMAs (20, 50, 100, 200), Buying Score levels, and collapsible checklists of condition details.
-    *   **Automated Scoring:** Real-time calculation of entry strength (A+, A, B, C, or Avoid).
-    *   **Position Sizing:** Integrated guidance based on setup quality.
-    *   **Risk Management:** Automated "Risk Fails" for overbought conditions or extended prices.
-*   **Trading Exit Rules:** A systematic framework to protect capital and lock in profits. Features:
-    *   **Multi-Factor Exit Scoring:** Evaluates Trend Breaks (EMA 20), MACD Bearish Crossovers, RSI Overbought Reversals, and Price vs. Resistance/Bollinger Bands.
-    *   **Visual Action Alerts:** Real-time status (SELL/REDUCE, CAUTION, HOLD) with recommended actions.
+- Real-time OHLCV data through `yfinance`.
+- Candlestick charts with EMA, Bollinger Bands, support/resistance, RSI, MACD, and ADX overlays.
+- Wilder-style RSI, ATR, and ADX calculations.
+- Shared rule engine for single-stock analysis, multi-stock comparison, S&P 500 scanning, tests, and backtest checks.
+- Entry scoring with core and supporting technical conditions.
+- Exit scoring based on EMA trend break, MACD weakness, RSI extension, Bollinger extension, and resistance proximity.
+- Data-quality warnings for stale bars, missing OHLCV data, short history, and unreliable volume.
+- Fundamentals and valuation snapshot: market cap, P/E, PEG, revenue growth, debt/equity, sector, and industry.
+- Relative strength versus SPY and QQQ over 20D, 50D, 100D, and 200D windows.
+- Market-regime check using SPY/QQQ EMA200 status and VIX.
+- Risk/reward trade plan with suggested entry, stop, target, risk per share, and reward/risk ratio.
+- Simple historical signal check showing non-Avoid entries, 20D win rate, average return, and worst adverse move.
+- S&P 500 scanner with an explicit survivorship-bias warning.
 
-## 🛠️ Local Setup
+## Local Setup
 
-Follow these steps to run the dashboard locally:
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/stock-analysis.git
-   cd stock-analysis
-   ```
+## Tests
 
-2. **Create a virtual environment:**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
+```bash
+.venv\Scripts\python.exe -m unittest test_analysis_core.py
+```
 
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Project Structure
 
-4. **Run the app:**
-   ```bash
-   streamlit run app.py
-   ```
+- `app.py` - Streamlit user interface and data-fetching integration.
+- `analysis_core.py` - Pure indicator, scoring, risk, data-quality, and backtest logic.
+- `test_analysis_core.py` - Unit tests for the reusable analysis engine.
+- `requirements.txt` - Python dependencies.
 
-## 📋 Requirements
-The core libraries used in this project are:
-*   `streamlit` - Web framework
-*   `yfinance` - Financial data API
-*   `pandas` - Data manipulation
-*   `plotly` - Interactive charts
-*   `lxml` - For scraping Wikipedia tables
+## Strategy Notes
 
-## 📊 Strategy Logic: Composite Entry System
-The dashboard utilizes a multi-factor model to rank stock opportunities, organized into three tabs:
-1.  **Overview:** Real-time metrics and price action chart.
-2.  **Technicals:** Detailed RSI, MACD, Trading Entry Scoring System, and rolling 20D intraday drawdown/drawup extrema.
-3.  **Multi-Stock Analysis:** Batch comparison of technical metrics and scores for multiple tickers.
-4.  **High Growth Stocks:** Real-time scanner mapping S&P 500 growth over multiple horizons with customizable buying rules filters.
+The scoring model is rule-based. It should be treated as a decision-support tool, not a trading recommendation. The backtest summary is intentionally simple and should be expanded before using the strategy with real capital.
 
-### Scoring Criteria
-*   **Core Conditions (5):** Focused on drawdown (>= 8% from 10D high), EMA20 alignment, RSI stability (42-58), volume expansion (>= 1.6x), and MACD crossovers.
-*   **Supporting Conditions (7):** Includes trend alignment (EMA50/100), relative strength (52W high proximity), ADX strength, and volatility bands (Bollinger).
+Important limitations:
 
-### Risk Management
-*   **Hard Overrides:** Automatic "Avoid" signal if RSI > 68 or price is > 8% above EMA 20.
-*   **Safety Standards:** Mandatory stop-loss guidance (-8% to -10%) and position capping (15% per stock).
+- Yahoo Finance data can be delayed, adjusted, incomplete, or unavailable.
+- The S&P 500 scanner uses the current index membership list, so it is suitable for current screening but not historical backtesting.
+- Technical signals should be validated against fundamentals, market regime, liquidity, earnings dates, and position-level risk.
 
-## ⚠️ Disclaimer
-This analysis represents a personal trading strategy and does not constitute financial advice. Investment involves risk; please conduct your own due diligence before committing capital.
+## Disclaimer
 
-## 🤖 AI Collaboration
-Developed with the support of **Gemini (Google AI)** to optimize performance, refine the UI/UX, and ensure robust error handling.
+This project is for education and research only. It is not financial advice.
