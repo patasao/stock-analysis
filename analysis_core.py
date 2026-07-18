@@ -40,6 +40,7 @@ def calculate_indicators(df, ema_span_1=20, ema_span_2=50):
     df = df.copy()
     df['EMA_1'] = df['Close'].ewm(span=ema_span_1, adjust=False).mean()
     df['EMA_2'] = df['Close'].ewm(span=ema_span_2, adjust=False).mean()
+    df['EMA_50'] = df['Close'].ewm(span=50, adjust=False).mean()
     df['EMA_100'] = df['Close'].ewm(span=100, adjust=False).mean()
     df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
 
@@ -130,6 +131,7 @@ def evaluate_strategy_row(data, idx=-1):
     price_change_pct = ((curr_price - prev_close) / prev_close) * 100 if prev_close else 0.0
     ema_short_val = finite_float(row['EMA_1'])
     ema_long_val = finite_float(row['EMA_2'])
+    ema_50_val = finite_float(row['EMA_50'])
     ema_100_val = finite_float(row['EMA_100'])
     ema_200_val = finite_float(row['EMA_200'])
     rsi_val = finite_float(row['RSI'], 50.0)
@@ -211,7 +213,7 @@ def evaluate_strategy_row(data, idx=-1):
     return {
         "curr_price": curr_price, "price_change_pct": price_change_pct,
         "ema_short_val": ema_short_val, "ema_long_val": ema_long_val,
-        "ema_100_val": ema_100_val, "ema_200_val": ema_200_val,
+        "ema_50_val": ema_50_val, "ema_100_val": ema_100_val, "ema_200_val": ema_200_val,
         "atr_val": atr_val, "rsi_val": rsi_val, "res_val": res_val, "sup_val": sup_val,
         "trend": trend, "trend_detail": trend_detail, "sentiment": sentiment, "sentiment_detail": sentiment_detail,
         "dd_20d": finite_float(row['Drawdown_20d']), "du_20d": finite_float(row['Drawup_20d']),

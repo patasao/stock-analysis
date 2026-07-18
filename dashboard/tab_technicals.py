@@ -28,11 +28,20 @@ def render(symbol, period, interval, ema_short, ema_long):
         t_col2.metric("Trend (EMA)", analysis['trend'], analysis['trend_detail'], help=TECH_HELP["Trend (EMA)"])
         t_col3.metric("Sentiment", analysis['sentiment'], analysis['sentiment_detail'], help=TECH_HELP["Sentiment"])
 
-        e_col1, e_col2, e_col3, e_col4 = st.columns(4)
-        e_col1.metric("EMA 20", f"${analysis['ema_short_val']:,.2f}", help=TECH_HELP["EMA 20"])
-        e_col2.metric("EMA 50", f"${analysis['ema_long_val']:,.2f}", help=TECH_HELP["EMA 50"])
-        e_col3.metric("EMA 100", f"${analysis['ema_100_val']:,.2f}", help=TECH_HELP["EMA 100"])
-        e_col4.metric("EMA 200", f"${analysis['ema_200_val']:,.2f}", help=TECH_HELP["EMA 200"])
+        # Keyed by span so an adjustable Short/Long EMA that lands on 50, 100, or
+        # 200 naturally dedupes against the fixed EMA card instead of showing
+        # two identical cards.
+        ema_by_span = {}
+        ema_by_span[ema_short] = (f"EMA {ema_short}", analysis['ema_short_val'], TECH_HELP["EMA 20"])
+        ema_by_span[ema_long] = (f"EMA {ema_long}", analysis['ema_long_val'], TECH_HELP["EMA 50"])
+        ema_by_span.setdefault(50, ("EMA 50", analysis['ema_50_val'], TECH_HELP["EMA 50"]))
+        ema_by_span.setdefault(100, ("EMA 100", analysis['ema_100_val'], TECH_HELP["EMA 100"]))
+        ema_by_span.setdefault(200, ("EMA 200", analysis['ema_200_val'], TECH_HELP["EMA 200"]))
+
+        ema_cols = st.columns(len(ema_by_span))
+        for col, span in zip(ema_cols, sorted(ema_by_span)):
+            label, value, help_text = ema_by_span[span]
+            col.metric(label, f"${value:,.2f}", help=help_text)
 
         quality_warnings(analysis.get('quality_warnings', []))
 
@@ -128,21 +137,21 @@ def render(symbol, period, interval, ema_short, ema_long):
             st.write(f"**Core Conditions:** {analysis['core_score']}/5")
             st.write(f"**Supporting Conditions:** {analysis['supp_score']}/7")
             if analysis['risk_fail_rsi']: st.error("⚠️ Risk: RSI too high (> 68)")
-            if analysis['risk_fail_ema20']: st.error("⚠️ Risk: Too far above EMA20 (> 8%)")
+            if analysis['risk_fail_ema20']: st.error(f"⚠️ Risk: Too far above EMA{ema_short} (> 8%)")
 
             with st.expander("🔍 View Checklist Details"):
                 c_col1, c_col2 = st.columns(2)
                 with c_col1:
                     st.write("**Core Conditions**")
                     condition_checkbox("Drawdown >= 8%", analysis['c1'], f"{analysis['drawdown_10d']:.1%}", "Drawdown >= 8%")
-                    condition_checkbox("Within +/-6% EMA20", analysis['c2'], f"{analysis['ema20_dist']:.1%}", "Within +/-6% EMA20")
+                    condition_checkbox(f"Within +/-6% EMA{ema_short}", analysis['c2'], f"{analysis['ema20_dist']:.1%}", "Within +/-6% EMA20")
                     condition_checkbox("RSI 42-58", analysis['c3'], f"{analysis['rsi_val']:.1f}", "RSI 42-58")
                     condition_checkbox("Vol Ratio >= 1.6x", analysis['c4'], f"{analysis['vol_ratio']:.1f}x", "Vol Ratio >= 1.6x")
                     condition_checkbox("MACD > Signal", analysis['c5'], "core", "MACD > Signal")
 
                 with c_col2:
                     st.write("**Supporting Conditions**")
-                    condition_checkbox("Above EMA50", analysis['s1'], "price > EMA50", "Above EMA50")
+                    condition_checkbox(f"Above EMA{ema_long}", analysis['s1'], f"price > EMA{ema_long}", "Above EMA50")
                     condition_checkbox("MACD > Signal", analysis['s2'], "support", "MACD > Signal")
                     condition_checkbox("78%-94% of 52W High", analysis['s3'], "range", "78%-94% of 52W High")
                     condition_checkbox("Above EMA100", analysis['s4'], "price > EMA100", "Above EMA100")
@@ -166,7 +175,7 @@ def render(symbol, period, interval, ema_short, ema_long):
 
             st.write("")
             st.write(f"**Exit Signals Triggered:** {analysis['exit_score']}/5")
-            condition_checkbox("Price below EMA 20", analysis['ex1'], "trend break", "Price below EMA 20")
+            condition_checkbox(f"Price below EMA {ema_short}", analysis['ex1'], "trend break", "Price below EMA 20")
             condition_checkbox("MACD Bearish Crossover", analysis['ex2'], "momentum", "MACD Bearish Crossover")
             condition_checkbox("RSI Overbought", analysis['ex3'], ">70", "RSI Overbought")
             condition_checkbox("Price at Upper Bollinger Band", analysis['ex4'], "extension", "Price at Upper Bollinger Band")
@@ -178,9 +187,9 @@ def render(symbol, period, interval, ema_short, ema_long):
         selected_indicators = st.multiselect(
             "Select indicators to overlay or view:",
             options=["EMAs (20, 50, 100, 200)", "Bollinger Bands", "Support/Resistance", "RSI", "MACD", "ADX"],
-            default=["EMAs (20, 50, 100, 200)", "RSI"],
+            default=["EMAs (20, 50, 100, 200)", "RSI", "MACD"],
             help="Choose which overlays and oscillator panels to show in the combined technical chart."
         )
 
-        fig_multi = build_multi_indicator_chart(data, selected_indicators, dark=is_dark_theme())
+        fig_multi = build_multi_indicator_chart(data, selected_indicators, ema_short=ema_short, ema_long=ema_long, dark=is_dark_theme())
         st.plotly_chart(fig_multi, use_container_width=True)

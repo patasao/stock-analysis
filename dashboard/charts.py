@@ -36,7 +36,7 @@ def build_overview_chart(data, symbol, ema_short, ema_long, dark=False):
     return fig
 
 
-def build_multi_indicator_chart(data, selected_indicators, dark=False):
+def build_multi_indicator_chart(data, selected_indicators, ema_short=20, ema_long=50, dark=False):
     """Candlestick chart with optional overlays and oscillator subplot rows."""
     rows = 1
     if "RSI" in selected_indicators: rows += 1
@@ -58,10 +58,16 @@ def build_multi_indicator_chart(data, selected_indicators, dark=False):
     ), row=1, col=1)
 
     if "EMAs (20, 50, 100, 200)" in selected_indicators:
-        fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_1'], line=dict(color='orange', width=1.5), name="EMA 20"), row=1, col=1)
-        fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_2'], line=dict(color='blue', width=1.5), name="EMA 50"), row=1, col=1)
-        fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_100'], line=dict(color='purple', width=1.5), name="EMA 100"), row=1, col=1)
-        fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_200'], line=dict(color='gray', width=1.5), name="EMA 200"), row=1, col=1)
+        fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_1'], line=dict(color='orange', width=1.5), name=f"EMA {ema_short}"), row=1, col=1)
+        fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_2'], line=dict(color='blue', width=1.5), name=f"EMA {ema_long}"), row=1, col=1)
+        # EMA_50/EMA_100/EMA_200 are fixed spans; skip one if the adjustable
+        # Short/Long EMA Span already lands on it, to avoid a duplicate, identical line.
+        if ema_short != 50 and ema_long != 50:
+            fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_50'], line=dict(color='deepskyblue', width=1.5), name="EMA 50"), row=1, col=1)
+        if ema_short != 100 and ema_long != 100:
+            fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_100'], line=dict(color='purple', width=1.5), name="EMA 100"), row=1, col=1)
+        if ema_short != 200 and ema_long != 200:
+            fig_multi.add_trace(go.Scatter(x=data.index, y=data['EMA_200'], line=dict(color='gray', width=1.5), name="EMA 200"), row=1, col=1)
 
     if "Bollinger Bands" in selected_indicators:
         fig_multi.add_trace(go.Scatter(x=data.index, y=data['BB_Upper'], line=dict(color='rgba(173, 216, 230, 0.4)', width=1), name="BB Upper"), row=1, col=1)

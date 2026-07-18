@@ -25,6 +25,9 @@ def render(period, interval, ema_short, ema_long):
         if not symbols:
             return
 
+        ema_short_col = f"EMA{ema_short}"
+        ema_long_col = f"EMA{ema_long}" if ema_long != ema_short else f"EMA{ema_long} (Long)"
+
         with st.spinner(f"Analyzing {len(symbols)} stocks..."):
             results = []
             for s in symbols:
@@ -35,8 +38,8 @@ def render(period, interval, ema_short, ema_long):
                         "Price": res['curr_price'],
                         "20D Support": res['sup_val'],
                         "20D Resistance": res['res_val'],
-                        "EMA20": res['ema_short_val'],
-                        "EMA50": res['ema_long_val'],
+                        ema_short_col: res['ema_short_val'],
+                        ema_long_col: res['ema_long_val'],
                         "RSI (14)": res['rsi_val'],
                         "Trend (EMA)": res['trend'],
                         "Sentiment": res['sentiment'],
@@ -58,8 +61,8 @@ def render(period, interval, ema_short, ema_long):
                 "Price": "${:,.2f}",
                 "20D Support": "${:,.2f}",
                 "20D Resistance": "${:,.2f}",
-                "EMA20": "${:,.2f}",
-                "EMA50": "${:,.2f}",
+                ema_short_col: "${:,.2f}",
+                ema_long_col: "${:,.2f}",
                 "RSI (14)": "{:.2f}",
                 "Avg Intraday DD": "{:.2f}%",
                 "Avg Intraday DU": "{:.2f}%"
