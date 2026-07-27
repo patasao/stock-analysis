@@ -25,9 +25,6 @@ def render(period, interval, ema_short, ema_long):
         if not symbols:
             return
 
-        ema_short_col = f"EMA{ema_short}"
-        ema_long_col = f"EMA{ema_long}" if ema_long != ema_short else f"EMA{ema_long} (Long)"
-
         with st.spinner(f"Analyzing {len(symbols)} stocks..."):
             results = []
             for s in symbols:
@@ -35,16 +32,13 @@ def render(period, interval, ema_short, ema_long):
                 if res:
                     results.append({
                         "Symbol": s,
-                        "Price": res['curr_price'],
+                        "Current Price": res['curr_price'],
                         "20D Support": res['sup_val'],
                         "20D Resistance": res['res_val'],
-                        ema_short_col: res['ema_short_val'],
-                        ema_long_col: res['ema_long_val'],
-                        "RSI (14)": res['rsi_val'],
-                        "Trend (EMA)": res['trend'],
-                        "Sentiment": res['sentiment'],
-                        "Avg Intraday DD": res['avg_dd'],
-                        "Avg Intraday DU": res['avg_du'],
+                        "EMA20": res['ema_20_val'],
+                        "EMA50": res['ema_50_val'],
+                        "EMA100": res['ema_100_val'],
+                        "EMA200": res['ema_200_val'],
                         "Buying Score": res['entry_level'],
                         "Selling Score": res['exit_level']
                     })
@@ -58,14 +52,13 @@ def render(period, interval, ema_short, ema_long):
         styled = (
             df_multi.style
             .format({
-                "Price": "${:,.2f}",
+                "Current Price": "${:,.2f}",
                 "20D Support": "${:,.2f}",
                 "20D Resistance": "${:,.2f}",
-                ema_short_col: "${:,.2f}",
-                ema_long_col: "${:,.2f}",
-                "RSI (14)": "{:.2f}",
-                "Avg Intraday DD": "{:.2f}%",
-                "Avg Intraday DU": "{:.2f}%"
+                "EMA20": "${:,.2f}",
+                "EMA50": "${:,.2f}",
+                "EMA100": "${:,.2f}",
+                "EMA200": "${:,.2f}",
             })
             .map(_tone_style(ENTRY_LEVEL_TONE), subset=["Buying Score"])
             .map(_tone_style(EXIT_LEVEL_TONE), subset=["Selling Score"])

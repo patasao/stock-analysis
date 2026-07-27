@@ -154,7 +154,6 @@ def build_volatility_scale_figure(lowest_dd, avg_dd, avg_du, highest_du, dark=Fa
     ))
 
     zero_line_color = "#ffffff" if dark else "#333333"
-    label_color = "#ffffff" if dark else "#000000"
 
     markers = [
         (lowest_dd, "#ff3333"),
@@ -169,27 +168,6 @@ def build_volatility_scale_figure(lowest_dd, avg_dd, avg_du, highest_du, dark=Fa
             line=dict(color=color, width=2, dash="dot"),
         )
 
-    label_data = [
-        (lowest_dd, label_color, f"Lowest DD<br><b>{lowest_dd:.2f}%</b>"),
-        (avg_dd, label_color, f"Avg DD<br><b>{avg_dd:.2f}%</b>"),
-        (0.0, label_color, "Open<br><b>0.00%</b>"),
-        (avg_du, label_color, f"Avg DU<br><b>+{avg_du:.2f}%</b>"),
-        (highest_du, label_color, f"Highest DU<br><b>+{highest_du:.2f}%</b>"),
-    ]
-
-    for x_val, color, text in label_data:
-        fig.add_annotation(
-            x=x_val,
-            y=0,
-            yref="paper",
-            text=text,
-            showarrow=False,
-            font=dict(color=color, size=11),
-            align="center",
-            yanchor="top",
-            yshift=-8,
-        )
-
     grid_color = "rgba(255,255,255,0.3)" if dark else "rgba(0,0,0,0.3)"
     tick_color = "rgba(255,255,255,0.5)" if dark else "rgba(0,0,0,0.6)"
 
@@ -197,8 +175,8 @@ def build_volatility_scale_figure(lowest_dd, avg_dd, avg_du, highest_du, dark=Fa
     fig.update_layout(
         template=_template(dark),
         barmode="overlay",
-        height=110,
-        margin=dict(l=0, r=0, t=10, b=60),
+        height=90,
+        margin=dict(l=0, r=0, t=10, b=30),
         xaxis=dict(
             range=[lowest_dd - padding, highest_du + padding],
             showgrid=False,
