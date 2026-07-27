@@ -21,6 +21,16 @@ def fetch_stock_data(symbol, period="1y", interval="1d"):
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(0)
 
+        # Drop a trailing placeholder row for a day that hasn't traded yet
+        # (all-NaN OHLC), so the latest row always reflects the last fully
+        # completed session instead of surfacing as a data-quality warning.
+        ohlc_cols = [c for c in ['Open', 'High', 'Low', 'Close'] if c in data.columns]
+        while len(data) and ohlc_cols and data[ohlc_cols].iloc[-1].isna().all():
+            data = data.iloc[:-1]
+
+        if data.empty:
+            return None
+
         return data
     except Exception:
         return None
