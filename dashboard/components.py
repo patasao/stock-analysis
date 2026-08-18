@@ -55,12 +55,13 @@ def score_banner(headline, subtext, tone):
     )
 
 
-def condition_checkbox(label, passed, value_text, help_key):
+def condition_checkbox(label, passed, value_text, help_key, key=None):
     st.checkbox(
         f"{label} ({value_text})",
         value=bool(passed),
         disabled=True,
         help=TECH_HELP[help_key],
+        key=key,
     )
 
 

@@ -94,10 +94,10 @@ def render():
             with st.expander("🔍 View Core Conditions Checklist Details"):
                 det_col1, det_col2 = st.columns(2)
                 with det_col1:
-                    condition_checkbox("Drawdown >= 8%", stock['c1'], f"{stock['drawdown_10d']:.1%}", "Drawdown >= 8%")
-                    condition_checkbox("Within +/-6% EMA20", stock['c2'], f"{stock['ema20_dist']:.1%}", "Within +/-6% EMA20")
-                    condition_checkbox("RSI 42-58", stock['c3'], f"{stock['rsi_val']:.1f}", "RSI 42-58")
+                    condition_checkbox("Drawdown >= 8%", stock['c1'], f"{stock['drawdown_10d']:.1%}", "Drawdown >= 8%", key=f"{stock['ticker']}_c1")
+                    condition_checkbox("Within +/-6% EMA20", stock['c2'], f"{stock['ema20_dist']:.1%}", "Within +/-6% EMA20", key=f"{stock['ticker']}_c2")
+                    condition_checkbox("RSI 42-58", stock['c3'], f"{stock['rsi_val']:.1f}", "RSI 42-58", key=f"{stock['ticker']}_c3")
                 with det_col2:
-                    condition_checkbox("Vol Ratio >= 1.6x", stock['c4'], f"{stock['vol_ratio']:.1f}x", "Vol Ratio >= 1.6x")
-                    condition_checkbox("MACD > Signal", stock['c5'], "core", "MACD > Signal")
+                    condition_checkbox("Vol Ratio >= 1.6x", stock['c4'], f"{stock['vol_ratio']:.1f}x", "Vol Ratio >= 1.6x", key=f"{stock['ticker']}_c4")
+                    condition_checkbox("MACD > Signal", stock['c5'], "core", "MACD > Signal", key=f"{stock['ticker']}_c5")
                     st.write(f"Core score: **{stock['core_score']}/5**")
