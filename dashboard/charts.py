@@ -42,6 +42,7 @@ def build_multi_indicator_chart(data, selected_indicators, ema_short=20, ema_lon
     if "RSI" in selected_indicators: rows += 1
     if "MACD" in selected_indicators: rows += 1
     if "ADX" in selected_indicators: rows += 1
+    if "ATR" in selected_indicators: rows += 1
 
     row_heights = [0.5] + [0.15] * (rows - 1)
 
@@ -97,6 +98,11 @@ def build_multi_indicator_chart(data, selected_indicators, ema_short=20, ema_lon
         fig_multi.add_trace(go.Scatter(x=data.index, y=data['ADX'], line=dict(color='yellow', width=1.5), name="ADX"), row=current_row, col=1)
         fig_multi.add_hline(y=25, line_dash="dash", line_color="gray", row=current_row, col=1)
         fig_multi.update_yaxes(title_text="ADX", row=current_row, col=1)
+        current_row += 1
+
+    if "ATR" in selected_indicators:
+        fig_multi.add_trace(go.Scatter(x=data.index, y=data['ATR'], line=dict(color='coral', width=1.5), name="ATR (14)"), row=current_row, col=1)
+        fig_multi.update_yaxes(title_text="ATR", row=current_row, col=1)
         current_row += 1
 
     fig_multi.update_layout(

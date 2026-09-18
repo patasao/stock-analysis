@@ -2,6 +2,7 @@ TECH_HELP = {
     "RSI (14)": "Relative Strength Index using a 14-period Wilder calculation. Above 70 is often extended; below 30 is often oversold.",
     "Trend (EMA)": "Compares short and long exponential moving averages to identify the current trend bias.",
     "Sentiment": "Momentum label based on MACD versus signal line and RSI above or below 50.",
+    "ATR (14)": "Average True Range over 14 periods. Higher values mean larger typical high-low/gap movement, useful for sizing stops and position risk.",
     "EMA 20": "Short-term exponential moving average. Often used as dynamic support/resistance for active trends.",
     "EMA 50": "Medium-term exponential moving average. Often used to judge institutional trend support.",
     "EMA 100": "Longer-term exponential moving average. Helps separate short pullbacks from deeper trend weakness.",

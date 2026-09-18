@@ -22,11 +22,13 @@ def render(symbol, period, interval, ema_short, ema_long):
     with st.container(border=True):
         st.subheader("Advanced Technical Indicators")
 
-        t_col1, t_col2, t_col3 = st.columns(3)
+        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         rsi_status = "Overbought ⚠️" if analysis['rsi_val'] > 70 else "Oversold ⚠️" if analysis['rsi_val'] < 30 else "Neutral"
+        atr_pct = (analysis['atr_val'] / analysis['curr_price'] * 100) if analysis['curr_price'] else 0.0
         t_col1.metric("RSI (14)", f"{analysis['rsi_val']:.2f}", rsi_status, help=TECH_HELP["RSI (14)"])
         t_col2.metric("Trend (EMA)", analysis['trend'], analysis['trend_detail'], help=TECH_HELP["Trend (EMA)"])
         t_col3.metric("Sentiment", analysis['sentiment'], analysis['sentiment_detail'], help=TECH_HELP["Sentiment"])
+        t_col4.metric("ATR (14)", f"${analysis['atr_val']:,.2f}", f"{atr_pct:.1f}% of price", help=TECH_HELP["ATR (14)"])
 
         # Keyed by span so an adjustable Short/Long EMA that lands on 50, 100, or
         # 200 naturally dedupes against the fixed EMA card instead of showing
@@ -186,7 +188,7 @@ def render(symbol, period, interval, ema_short, ema_long):
 
         selected_indicators = st.multiselect(
             "Select indicators to overlay or view:",
-            options=["EMAs (20, 50, 100, 200)", "Bollinger Bands", "Support/Resistance", "RSI", "MACD", "ADX"],
+            options=["EMAs (20, 50, 100, 200)", "Bollinger Bands", "Support/Resistance", "RSI", "MACD", "ADX", "ATR"],
             default=["EMAs (20, 50, 100, 200)", "RSI", "MACD"],
             help="Choose which overlays and oscillator panels to show in the combined technical chart."
         )

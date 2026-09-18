@@ -35,6 +35,7 @@ class AnalysisCoreTests(unittest.TestCase):
         self.assertGreaterEqual(signal["supp_score"], 0)
         self.assertGreater(signal["risk_per_share"], 0)
         self.assertGreaterEqual(signal["reward_risk"], 0)
+        self.assertGreater(signal["atr_val"], 0)
 
     def test_data_quality_flags_short_history(self):
         warnings = inspect_data_quality(make_ohlcv(rows=40), "TEST")
