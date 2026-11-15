@@ -30,16 +30,17 @@ def render(period, interval, ema_short, ema_long):
             for s in symbols:
                 res = get_analysis(s, period, interval, ema_short, ema_long)
                 if res:
+                    currency = "฿" if s.endswith(".BK") else "$"
                     results.append({
                         "Symbol": s,
-                        "Current Price": res['curr_price'],
-                        "20D Support": res['sup_val'],
-                        "20D Resistance": res['res_val'],
-                        "EMA20": res['ema_20_val'],
-                        "EMA50": res['ema_50_val'],
-                        "EMA100": res['ema_100_val'],
-                        "EMA200": res['ema_200_val'],
-                        "Buying Score": res['entry_level'],
+                        "Current Price": f"{currency}{res['curr_price']:,.2f}",
+                        "20D Support": f"{currency}{res['sup_val']:,.2f}",
+                        "20D Resistance": f"{currency}{res['res_val']:,.2f}",
+                        "EMA20": f"{currency}{res['ema_20_val']:,.2f}",
+                        "EMA50": f"{currency}{res['ema_50_val']:,.2f}",
+                        "EMA100": f"{currency}{res['ema_100_val']:,.2f}",
+                        "EMA200": f"{currency}{res['ema_200_val']:,.2f}",
+                        "Technical Setup": "Buy Candidate" if res['entry_level'] == "Buy" else res['entry_level'],
                         "Selling Score": res['exit_level']
                     })
 
@@ -51,16 +52,7 @@ def render(period, interval, ema_short, ema_long):
 
         styled = (
             df_multi.style
-            .format({
-                "Current Price": "${:,.2f}",
-                "20D Support": "${:,.2f}",
-                "20D Resistance": "${:,.2f}",
-                "EMA20": "${:,.2f}",
-                "EMA50": "${:,.2f}",
-                "EMA100": "${:,.2f}",
-                "EMA200": "${:,.2f}",
-            })
-            .map(_tone_style(ENTRY_LEVEL_TONE), subset=["Buying Score"])
+            .map(_tone_style(ENTRY_LEVEL_TONE), subset=["Technical Setup"])
             .map(_tone_style(EXIT_LEVEL_TONE), subset=["Selling Score"])
         )
 

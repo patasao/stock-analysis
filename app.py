@@ -1,6 +1,6 @@
 import streamlit as st
 
-from dashboard import tab_growth_scanner, tab_index, tab_multi_stock, tab_overview, tab_technicals
+from dashboard import tab_market_regime, tab_multi_stock, tab_overview, tab_technicals
 from dashboard.config_bar import render_config_bar
 
 st.set_page_config(page_title="Stock Analysis Dashboard", layout="wide")
@@ -9,8 +9,8 @@ st.title("📈 Stock Insight Dashboard")
 
 symbol, period, interval, ema_short, ema_long = render_config_bar()
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Overview", "🔍 Technicals", "📋 Multi-Stock Analysis", "🚀 High Growth Stocks", "🌐 Indexes"
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Overview", "🔍 Technicals", "📋 Multi-Stock Analysis", "🌐 Market Regime Assessment"
 ])
 
 with tab1:
@@ -23,10 +23,7 @@ with tab3:
     tab_multi_stock.render(period, interval, ema_short, ema_long)
 
 with tab4:
-    tab_growth_scanner.render()
-
-with tab5:
-    tab_index.render(period, interval, ema_short, ema_long)
+    tab_market_regime.render()
 
 st.divider()
 st.markdown(

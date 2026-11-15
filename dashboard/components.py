@@ -16,10 +16,9 @@ TONE_COLORS = {
 # Single source of truth for entry_level / exit_level -> tone, replacing the
 # three separate ad-hoc color schemes that used to live in app.py.
 ENTRY_LEVEL_TONE = {
-    "A+": "bullish_strong",
-    "A": "bullish",
-    "B": "moderate",
-    "C": "weak",
+    "Buy": "bullish_strong",
+    "Buy Candidate": "bullish_strong",
+    "Wait": "moderate",
     "Avoid": "bearish",
 }
 

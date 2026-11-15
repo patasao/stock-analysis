@@ -15,7 +15,7 @@ def _template(dark):
     return "plotly_dark" if dark else "plotly_white"
 
 
-def build_overview_chart(data, symbol, ema_short, ema_long, dark=False):
+def build_overview_chart(data, symbol, ema_short, ema_long, dark=False, currency="USD"):
     """Candlestick chart with short/long EMA overlays for the Overview tab."""
     fig = go.Figure()
     fig.add_trace(go.Candlestick(
@@ -27,7 +27,7 @@ def build_overview_chart(data, symbol, ema_short, ema_long, dark=False):
 
     fig.update_layout(
         title=f"{symbol} Price Action",
-        yaxis_title="Price",
+        yaxis_title=f"Price ({currency})",
         xaxis_rangeslider_visible=False,
         template=_template(dark),
         height=600,
@@ -36,7 +36,7 @@ def build_overview_chart(data, symbol, ema_short, ema_long, dark=False):
     return fig
 
 
-def build_multi_indicator_chart(data, selected_indicators, ema_short=20, ema_long=50, dark=False):
+def build_multi_indicator_chart(data, selected_indicators, ema_short=20, ema_long=50, dark=False, currency="USD"):
     """Candlestick chart with optional overlays and oscillator subplot rows."""
     rows = 1
     if "RSI" in selected_indicators: rows += 1
@@ -112,6 +112,7 @@ def build_multi_indicator_chart(data, selected_indicators, ema_short=20, ema_lon
         margin=dict(l=10, r=10, t=40, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
+    fig_multi.update_yaxes(title_text=f"Price ({currency})", row=1, col=1)
     return fig_multi
 
 
