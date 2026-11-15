@@ -1,7 +1,12 @@
 import pandas as pd
 import streamlit as st
 
-from dashboard.data import SET_SECTORS, get_market_regime, get_sector_screen, get_thai_market_context
+from .data import get_market_regime, get_sector_screen, get_thai_market_context
+
+SET_SECTORS = (
+    "Agro & Food Industry", "Consumer Products", "Financials", "Industrials",
+    "Property & Construction", "Resources", "Services", "Technology",
+)
 
 
 def render():
