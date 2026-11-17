@@ -128,21 +128,35 @@ def render(symbol, period, interval, ema_short, ema_long):
         st.caption(f"Setup: {setup} · Technical levels use the selected {interval} regular-session bars. Entry reference is the setup level/zone, not automatically the latest close. Verify catalyst and event risk in Market Regime Assessment before acting.")
         final_action, final_reason = _final_trade_action(analysis["entry_level"], is_thai)
         p1, p2, p3, p4, p5 = st.columns(5)
-        entry_display = f"{currency}{analysis['suggested_entry']:,.2f}" if is_finite(analysis.get("suggested_entry")) else "N/A"
-        stop_display = f"{currency}{analysis['stop_loss']:,.2f}" if is_finite(analysis.get("stop_loss")) else "N/A"
-        rr_display = f"{analysis['rr_tp1']:.2f}R / {analysis['rr_tp2']:.2f}R" if is_finite(analysis.get("suggested_entry")) else "N/A"
-        p1.metric("Setup Entry Reference", entry_display, help="Pullback/retest: support or moving-average zone. Breakout: prior resistance level after confirmation. N/A means no confirmed entry setup.")
-        p2.metric("Technical Stop", stop_display, help=TECH_HELP["Stop"])
-        tp1_display = f"{currency}{analysis['tp1']:,.2f}" if is_finite(analysis.get("tp1")) else "N/A"
-        tp2_display = f"{currency}{analysis['tp2']:,.2f}" if is_finite(analysis.get("tp2")) else "N/A"
-        p3.metric("TP1", tp1_display, help="First overhead resistance or other identifiable technical target. If R/R is below 1.5R, the setup is not qualified.")
-        p4.metric("TP2", tp2_display, help="Next major overhead resistance, higher-timeframe level, or a labeled measured-move target. If unavailable or below 2R, the setup is not qualified.")
+        confirmed_entry = is_finite(analysis.get("suggested_entry"))
+        conditional_plan = not confirmed_entry and is_finite(analysis.get("watch_entry"))
+        display_entry_value = analysis.get("suggested_entry") if confirmed_entry else analysis.get("watch_entry") if conditional_plan else None
+        display_stop_value = analysis.get("stop_loss") if confirmed_entry else analysis.get("watch_stop") if conditional_plan else None
+        display_tp1_value = analysis.get("tp1") if confirmed_entry else analysis.get("watch_tp1") if conditional_plan else None
+        display_tp2_value = analysis.get("tp2") if confirmed_entry else analysis.get("watch_tp2") if conditional_plan else None
+        display_rr1 = analysis.get("rr_tp1") if confirmed_entry else analysis.get("watch_rr_tp1") if conditional_plan else None
+        display_rr2 = analysis.get("rr_tp2") if confirmed_entry else analysis.get("watch_rr_tp2") if conditional_plan else None
+        entry_display = f"{currency}{display_entry_value:,.2f}" if is_finite(display_entry_value) else "N/A"
+        stop_display = f"{currency}{display_stop_value:,.2f}" if is_finite(display_stop_value) else "N/A"
+        rr1_display = f"{display_rr1:.2f}R" if is_finite(display_rr1) and is_finite(display_tp1_value) else "N/A"
+        rr2_display = f"{display_rr2:.2f}R" if is_finite(display_rr2) and is_finite(display_tp2_value) else "N/A"
+        rr_display = f"{rr1_display} / {rr2_display}" if rr1_display != "N/A" or rr2_display != "N/A" else "N/A"
+        entry_label = "Setup Entry Reference" if confirmed_entry else "Conditional Entry Watch" if conditional_plan else "Setup Entry Reference"
+        stop_label = "Technical Stop" if confirmed_entry else "Stop if Triggered" if conditional_plan else "Technical Stop"
+        tp1_display = f"{currency}{display_tp1_value:,.2f}" if is_finite(display_tp1_value) else "N/A"
+        tp2_display = f"{currency}{display_tp2_value:,.2f}" if is_finite(display_tp2_value) else "N/A"
+        p1.metric(entry_label, entry_display, help="Pullback/retest: support or moving-average zone. Breakout: prior resistance after confirmation. Conditional watch levels require the stated price and volume confirmation before entry.")
+        p2.metric(stop_label, stop_display, help=TECH_HELP["Stop"])
+        p3.metric("TP1" + (" if triggered" if conditional_plan else ""), tp1_display, help="First overhead resistance or other identifiable technical target. If R/R is below 1.5R, the setup is not qualified.")
+        p4.metric("TP2" + (" if triggered" if conditional_plan else ""), tp2_display, help="Next major overhead resistance, higher-timeframe level, or a labeled measured-move target. If unavailable or below 2R, the setup is not qualified.")
         p5.metric("R/R (TP1 / TP2)", rr_display, help=TECH_HELP["Reward/Risk"])
         st.write(f"**Technical action: {analysis['entry_level']} · Final action: {final_action}.** {final_reason}")
-        if is_finite(analysis.get("stop_loss")):
+        if confirmed_entry:
             st.caption("Trade management: if the technical stop trades, exit and do not widen it. After TP1, consider tightening the stop toward breakeven based on price action; TP2 is the next technical target.")
+        elif conditional_plan:
+            st.caption(f"Conditional watch plan only — not a confirmed entry. {analysis.get('watch_condition', '')} The current action remains Wait until the setup confirms and the TP1/TP2 reward-to-risk rules are met.")
         else:
-            st.caption("No confirmed technical entry setup; the plan has no entry, stop, or targets yet.")
+            st.caption("No confirmed setup or nearby constructive support zone. Prices remain N/A until a pullback, breakout, or retest meets its confirmation rules; the latest close is not used as an entry.")
         if is_thai:
             ticker = symbol.upper().removesuffix(".BK")
             proxy_sector = next((name for name, names in SET_SECTOR_PROXY_STOCKS.items() if ticker in names), None)
@@ -160,8 +174,8 @@ def render(symbol, period, interval, ema_short, ema_long):
         plan = pd.DataFrame([
             ("Stock", f"{symbol} / {company}" if company else symbol),
             ("Sector", sector_name),
-            ("Setup", setup),
-            ("Entry", entry_display),
+            ("Setup", f"{setup} / {analysis.get('watch_setup_type')} (conditional)" if conditional_plan else setup),
+            ("Entry", entry_display + (" (conditional; wait for confirmation)" if conditional_plan else "")),
             ("Stop Loss", stop_display),
             ("TP1", tp1_display),
             ("TP2", tp2_display + (" (measured move)" if analysis.get("tp2_measured_move") else "")),

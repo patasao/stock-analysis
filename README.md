@@ -15,7 +15,7 @@ A Streamlit dashboard for technical stock screening, setup scoring, market-regim
 - Fundamentals and valuation snapshot: market cap, P/E, PEG, revenue growth, debt/equity, sector, and industry.
 - US relative strength versus SPY and the stock's sector ETF; Thai relative strength versus SET stock-basket and own-sector proxies.
 - US market-regime assessment using index trends, a breadth proxy, VIX, and 10-year Treasury yield. Thai market context uses SET stock-basket trend, constituent-basket breadth, and realized volatility proxies.
-- Trade plan with technical stop, two targets, and TP1/TP2 reward-risk ratios.
+- Trade plan shows confirmed setup levels when rules trigger and a separately labeled conditional pullback watch plan when structure is constructive; it never substitutes the latest close for an entry, and Buy qualification still requires identifiable targets meeting the 1.5R/2R rules.
 - Historical check of Buy setups showing 20D return, adverse move, stop-hit rate, and target-hit rates.
 - Sector screening across all 11 US S&P 500 sectors and major SET groups.
 - Color-coded technical setup and exit signals, adapting to the active light/dark theme.

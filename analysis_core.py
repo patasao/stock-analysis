@@ -273,6 +273,25 @@ def evaluate_strategy_row(data, idx=-1):
         setup_level = None
         suggested_entry = None
 
+    # A stock can be worth watching before the support test is confirmed. Keep
+    # this separate from suggested_entry so a conditional watch level can never
+    # be mistaken for an active signal or used by the Buy/backtest rules.
+    watch_setup_type = None
+    watch_entry = None
+    watch_stop = None
+    watch_condition = None
+    if (
+        setup_level is None and structure_improving and pullback_level is not None and
+        core_score + supp_score >= 6 and not risk_fail_rsi and not risk_fail_ema20 and
+        not wide_candle and atr_val > 0
+    ):
+        watch_distance = curr_price - pullback_level
+        if 0 <= watch_distance <= max(2.0 * atr_val, 0.08 * curr_price):
+            watch_setup_type = "Pullback watch"
+            watch_entry = pullback_level
+            watch_stop = min(pullback_level, recent_low) - (0.1 * atr_val)
+            watch_condition = "Wait for price to test this support zone, close back above it, and show contracting pullback volume."
+
     # The stop sits below the actual setup invalidation level, with a small
     # ATR buffer. It is not based on a fixed percentage of entry.
     trade_entry = suggested_entry if suggested_entry is not None else curr_price
@@ -296,11 +315,11 @@ def evaluate_strategy_row(data, idx=-1):
     # swing highs, then use the nearest overhead level for TP1 and the next
     # higher level for TP2. A breakout can use a measured-move projection when
     # there is no second overhead swing high.
-    highs = data['High'].iloc[max(0, row_pos - 252):max(0, row_pos - 1)].astype(float)
+    highs = data['High'].iloc[max(0, row_pos - 252):row_pos].astype(float)
     local_high = highs.eq(highs.rolling(5, center=True, min_periods=3).max())
-    target_levels = sorted({round(float(level), 6) for level in highs[local_high].dropna() if setup_level is not None and float(level) > trade_entry})
-    if setup_level is not None and res_val > trade_entry and setup_type != "Breakout":
-        target_levels.append(float(res_val))
+    target_levels = sorted({round(float(level), 6) for level in highs[local_high].dropna() if setup_level is not None and float(level) > curr_price})
+    if setup_level is not None and prior_high > curr_price and setup_type != "Breakout":
+        target_levels.append(float(prior_high))
     target_levels = sorted(set(target_levels))
     tp1 = target_levels[0] if target_levels else None
     tp2 = next((level for level in target_levels if tp1 is not None and level > tp1 + max(atr_val, 0.01)), None)
@@ -309,9 +328,31 @@ def evaluate_strategy_row(data, idx=-1):
         base = data.iloc[max(0, row_pos - 20):row_pos]
         base_height = finite_float(base['High'].max()) - finite_float(base['Low'].min()) if len(base) else 0.0
         projection = trade_entry + base_height
-        if base_height > 0 and projection > (tp1 or trade_entry):
+        if base_height > 0 and projection > max(tp1 or trade_entry, curr_price):
             tp2 = projection
             measured_move = True
+
+    watch_tp1 = None
+    watch_tp2 = None
+    watch_rr_tp1 = 0.0
+    watch_rr_tp2 = 0.0
+    if watch_entry is not None and watch_stop is not None and watch_stop < watch_entry:
+        watch_targets = sorted({
+            round(float(level), 6)
+            for level in highs[local_high].dropna()
+            if float(level) > curr_price
+        })
+        if prior_high > curr_price:
+            watch_targets.append(float(prior_high))
+        watch_targets = sorted(set(watch_targets))
+        watch_tp1 = watch_targets[0] if watch_targets else None
+        watch_tp2 = next(
+            (level for level in watch_targets if watch_tp1 is not None and level > watch_tp1 + max(atr_val, 0.01)),
+            None,
+        )
+        watch_risk = watch_entry - watch_stop
+        watch_rr_tp1 = max(watch_tp1 - watch_entry, 0.0) / watch_risk if watch_risk and watch_tp1 is not None else 0.0
+        watch_rr_tp2 = max(watch_tp2 - watch_entry, 0.0) / watch_risk if watch_risk and watch_tp2 is not None else 0.0
     target_resistance = tp1
     reward_per_share = max(tp1 - trade_entry, 0.0) if tp1 is not None else 0.0
     rr_tp1 = reward_per_share / risk_per_share if risk_per_share else 0.0
@@ -362,6 +403,10 @@ def evaluate_strategy_row(data, idx=-1):
         "breakout_confirmed": breakout_confirmed, "pullback_setup": pullback_setup,
         "retest_setup": retest_setup, "extended": extended,
         "setup_type": setup_type, "setup_level": setup_level,
+        "watch_setup_type": watch_setup_type, "watch_entry": watch_entry,
+        "watch_stop": watch_stop, "watch_tp1": watch_tp1, "watch_tp2": watch_tp2,
+        "watch_rr_tp1": watch_rr_tp1, "watch_rr_tp2": watch_rr_tp2,
+        "watch_condition": watch_condition,
         "price_away_from_entry": price_away_from_entry,
         "macd_val": macd_val, "signal_val": signal_val,
         "suggested_entry": suggested_entry, "stop_loss": stop_loss, "target_resistance": target_resistance,
